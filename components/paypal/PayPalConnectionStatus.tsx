@@ -20,10 +20,11 @@ export function PayPalConnectionStatus() {
 
     setStatus("loading");
     try {
+      const timestamp = new Date().getTime();
       const response = await fetch(
-        `/api/paypal/connected-account?orgId=${organization.id}`,
+        `/api/paypal/connected-account?orgId=${organization.id}&_t=${timestamp}`,
       );
-
+      
       if (response.ok) {
         const data = await response.json();
         setAccountDetails(data);
