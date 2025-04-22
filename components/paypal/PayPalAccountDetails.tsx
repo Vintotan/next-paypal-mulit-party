@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useOrganization } from "@clerk/nextjs";
 import {
   Card,
@@ -8,10 +8,26 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PayPalConnectionStatus } from "./PayPalConnectionStatus";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useRouter } from "next/navigation";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Spinner } from "@/components/ui/spinner";
 
 type PayPalAccount = {
   id: string;
@@ -26,50 +42,114 @@ type PayPalAccount = {
 };
 
 export function PayPalAccountDetails() {
+  const router = useRouter();
   const { organization } = useOrganization();
   const [account, setAccount] = useState<PayPalAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [disconnectError, setDisconnectError] = useState<string | null>(null);
 
-  // Fetch account details when the component mounts
-  useEffect(() => {
-    const fetchAccountDetails = async () => {
-      if (!organization?.id) return;
+  // Extract fetch account details as a reusable function
+  const fetchAccountDetails = useCallback(async () => {
+    if (!organization?.id) return;
 
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
 
-      try {
-        const response = await fetch(
-          `/api/paypal/account-details?orgId=${organization.id}`,
-        );
+    try {
+      const response = await fetch(
+        `/api/paypal/account-details?orgId=${organization.id}`,
+        {
+          headers: {
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+        },
+      );
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to fetch account details");
-        }
-
-        const data = await response.json();
-        // Only set the account if it's active
-        if (data.account && data.account.status === "active") {
-          setAccount(data.account);
-        } else {
+      if (!response.ok) {
+        if (response.status === 404) {
+          // No account found is not an error, just set account to null
           setAccount(null);
+          return;
         }
-      } catch (err) {
-        console.error("Error fetching PayPal account details:", err);
-        setError(
-          err instanceof Error
-            ? err.message
-            : "An error occurred while fetching account details",
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchAccountDetails();
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch account details");
+      }
+
+      const data = await response.json();
+      if (data.account && data.account.status === "active") {
+        setAccount(data.account);
+      } else {
+        // If status is not active, treat as disconnected
+        setAccount(null);
+      }
+    } catch (err) {
+      console.error("Error fetching PayPal account details:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "An error occurred while fetching account details",
+      );
+    } finally {
+      setLoading(false);
+    }
   }, [organization?.id]);
+
+  // Fetch account details when the component mounts or org changes
+  useEffect(() => {
+    fetchAccountDetails();
+  }, [fetchAccountDetails]);
+
+  // Handle disconnect PayPal account
+  const handleDisconnect = async () => {
+    if (!organization) {
+      setDisconnectError("No organization selected");
+      return;
+    }
+
+    setDisconnecting(true);
+    setDisconnectError(null);
+
+    try {
+      // Call the DELETE endpoint
+      const response = await fetch(
+        `/api/paypal/account-details?orgId=${organization.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to disconnect account");
+      }
+
+      // Close the dialog and clear the account data
+      setDisconnectDialogOpen(false);
+      setAccount(null);
+
+      // Force a re-fetch after a short delay to ensure DB updates are reflected
+      setTimeout(() => {
+        fetchAccountDetails();
+      }, 500);
+    } catch (err) {
+      console.error("Error disconnecting PayPal account:", err);
+      setDisconnectError(
+        err instanceof Error
+          ? err.message
+          : "Failed to disconnect PayPal account",
+      );
+    } finally {
+      setDisconnecting(false);
+    }
+  };
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -88,6 +168,9 @@ export function PayPalAccountDetails() {
           <CardTitle>PayPal Account Details</CardTitle>
           <CardDescription>Loading account information...</CardDescription>
         </CardHeader>
+        <CardContent className="flex justify-center py-8">
+          <Spinner />
+        </CardContent>
       </Card>
     );
   }
@@ -203,6 +286,53 @@ export function PayPalAccountDetails() {
           </div>
         </div>
       </CardContent>
+      <CardFooter className="flex justify-end pt-4">
+        <Button
+          variant="destructive"
+          onClick={() => setDisconnectDialogOpen(true)}
+        >
+          Disconnect PayPal Account
+        </Button>
+
+        <AlertDialog
+          open={disconnectDialogOpen}
+          onOpenChange={setDisconnectDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disconnect PayPal Account</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to disconnect your PayPal account? This
+                will prevent any future payments from being processed through
+                this account.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            {disconnectError && (
+              <Alert variant="destructive" className="my-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{disconnectError}</AlertDescription>
+              </Alert>
+            )}
+
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={disconnecting}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDisconnect();
+                }}
+                disabled={disconnecting}
+              >
+                {disconnecting ? "Disconnecting..." : "Disconnect"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </CardFooter>
     </Card>
   );
 }

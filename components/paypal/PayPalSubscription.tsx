@@ -13,30 +13,28 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 
-type PayPalCheckoutProps = {
-  amount: string;
-  platformFee: string;
-  currency?: string;
+type PayPalSubscriptionProps = {
+  planId: string;
   description?: string;
   onSuccess?: (details: any) => void;
   onError?: (error: any) => void;
 };
 
-export function PayPalCheckout({
-  amount,
-  platformFee,
-  currency = "USD",
-  description = "Purchase",
+export function PayPalSubscription({
+  planId,
+  description = "Subscription",
   onSuccess,
   onError,
-}: PayPalCheckoutProps) {
+}: PayPalSubscriptionProps) {
   const { organization } = useOrganization();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [connectedAccount, setConnectedAccount] = useState<any>(null);
   const [accountLoading, setAccountLoading] = useState(false);
+  const [planDetails, setPlanDetails] = useState<any>(null);
+  const [planLoading, setPlanLoading] = useState(false);
 
   // Check if organization has a connected PayPal account
   const checkConnectedAccount = useCallback(async () => {
@@ -58,14 +56,43 @@ export function PayPalCheckout({
     }
   }, [organization?.id]);
 
+  // Fetch plan details
+  const fetchPlanDetails = useCallback(async () => {
+    if (!planId) return;
+
+    setPlanLoading(true);
+    try {
+      const response = await fetch(`/api/paypal/plan-details?planId=${planId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPlanDetails(data);
+      } else {
+        throw new Error("Failed to fetch plan details");
+      }
+    } catch (err) {
+      console.error("Failed to fetch plan details:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch plan details",
+      );
+    } finally {
+      setPlanLoading(false);
+    }
+  }, [planId]);
+
   // Call this when the component mounts
   useEffect(() => {
     checkConnectedAccount();
-  }, [organization?.id, checkConnectedAccount]);
+    fetchPlanDetails();
+  }, [organization?.id, planId, checkConnectedAccount, fetchPlanDetails]);
 
-  const handleCreateOrder = async () => {
+  const handleCreateSubscription = async () => {
     if (!organization?.id) {
       setError("No organization selected");
+      return null;
+    }
+
+    if (!planId) {
+      setError("No subscription plan selected");
       return null;
     }
 
@@ -73,18 +100,15 @@ export function PayPalCheckout({
     setError(null);
 
     try {
-      // Create order with platform fee
-      const response = await fetch("/api/paypal/create-order", {
+      // Create subscription
+      const response = await fetch("/api/paypal/create-subscription", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           orgId: organization.id,
-          amount,
-          platformFee,
-          currency,
-          description,
+          planId,
         }),
       });
 
@@ -92,19 +116,19 @@ export function PayPalCheckout({
 
       if (!response.ok) {
         // Try to extract detailed error message from the response
-        let errorMsg = "Failed to create order";
+        let errorMsg = "Failed to create subscription";
         if (responseData.error) {
           errorMsg = responseData.error;
-          console.error("Order creation error:", responseData);
+          console.error("Subscription creation error:", responseData);
         }
         throw new Error(errorMsg);
       }
 
-      setOrderId(responseData.id);
+      setSubscriptionId(responseData.id);
       return responseData.id;
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to create order";
+        err instanceof Error ? err.message : "Failed to create subscription";
       setError(errorMessage);
       if (onError) onError(err);
       return null;
@@ -114,8 +138,8 @@ export function PayPalCheckout({
   };
 
   const handleApprove = async (data: any) => {
-    if (!organization?.id || !data.orderID) {
-      setError("Missing organization or order information");
+    if (!organization?.id || !data.subscriptionID) {
+      setError("Missing organization or subscription information");
       return;
     }
 
@@ -123,15 +147,15 @@ export function PayPalCheckout({
     setError(null);
 
     try {
-      // Capture the funds
-      const response = await fetch("/api/paypal/capture-order", {
+      // Validate the subscription approval
+      const response = await fetch("/api/paypal/validate-subscription", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           orgId: organization.id,
-          orderId: data.orderID,
+          subscriptionId: data.subscriptionID,
         }),
       });
 
@@ -139,10 +163,10 @@ export function PayPalCheckout({
 
       if (!response.ok) {
         // Try to extract detailed error message from the response
-        let errorMsg = "Failed to capture payment";
+        let errorMsg = "Failed to validate subscription";
         if (responseData.error) {
           errorMsg = responseData.error;
-          console.error("Payment capture error:", responseData);
+          console.error("Subscription validation error:", responseData);
         }
         throw new Error(errorMsg);
       }
@@ -152,7 +176,7 @@ export function PayPalCheckout({
       return responseData;
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to capture payment";
+        err instanceof Error ? err.message : "Failed to validate subscription";
       setError(errorMessage);
       if (onError) onError(err);
     } finally {
@@ -166,10 +190,12 @@ export function PayPalCheckout({
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>Complete Your Purchase</CardTitle>
+        <CardTitle>Subscribe to Plan</CardTitle>
         <CardDescription>
           {isAccountConnected
-            ? `Pay securely with PayPal - ${amount} ${currency}`
+            ? planDetails
+              ? `${planDetails.name} - ${description}`
+              : "Loading plan details..."
             : "PayPal account not connected"}
         </CardDescription>
       </CardHeader>
@@ -187,15 +213,15 @@ export function PayPalCheckout({
           <Alert className="bg-green-50 border-green-200">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <AlertTitle className="text-green-800">
-              Payment Successful
+              Subscription Successful
             </AlertTitle>
             <AlertDescription className="text-green-700">
-              Your payment has been processed successfully!
+              Your subscription has been activated successfully!
             </AlertDescription>
           </Alert>
         )}
 
-        {accountLoading && <p>Loading account information...</p>}
+        {(accountLoading || planLoading) && <p>Loading...</p>}
 
         {!isAccountConnected && !accountLoading && (
           <Alert>
@@ -203,37 +229,49 @@ export function PayPalCheckout({
             <AlertTitle>Account Not Connected</AlertTitle>
             <AlertDescription>
               The organization needs to connect a PayPal account before
-              accepting payments.
+              accepting subscriptions.
             </AlertDescription>
           </Alert>
         )}
 
-        {isAccountConnected && !success && (
+        {isAccountConnected && planDetails && !success && (
           <div className="space-y-4">
-            <div className="flex justify-between">
-              <span>Amount:</span>
-              <span className="font-medium">
-                {amount} {currency}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>Platform Fee:</span>
-              <span className="font-medium">
-                {platformFee} {currency}
-              </span>
-            </div>
-            <div className="flex justify-between border-t pt-2">
-              <span>Total:</span>
-              <span className="font-bold">
-                {amount} {currency}
-              </span>
-            </div>
+            {planDetails.billing_cycles &&
+              planDetails.billing_cycles.map((cycle: any, index: number) => (
+                <div key={index} className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>
+                      {cycle.tenure_type === "REGULAR"
+                        ? "Regular Price"
+                        : `Trial ${index + 1}`}
+                      :
+                    </span>
+                    <span className="font-medium">
+                      {cycle.pricing_scheme.fixed_price.value}{" "}
+                      {cycle.pricing_scheme.fixed_price.currency_code}
+                      {cycle.frequency &&
+                        ` / ${cycle.frequency.interval_count} ${cycle.frequency.interval_unit.toLowerCase()}`}
+                    </span>
+                  </div>
+                  {cycle.total_cycles > 0 && (
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Duration:</span>
+                      <span>
+                        {cycle.total_cycles}{" "}
+                        {cycle.frequency?.interval_unit.toLowerCase()}
+                        {cycle.total_cycles > 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
 
             <div className="mt-6">
               <PayPalScriptProvider
                 options={{
                   clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "",
-                  currency: currency,
+                  vault: true,
+                  intent: "subscription",
                 }}
               >
                 <div style={{ colorScheme: "none" }}>
@@ -244,11 +282,13 @@ export function PayPalCheckout({
                     }}
                     fundingSource="paypal"
                     disabled={loading}
-                    forceReRender={[amount, currency, platformFee]}
-                    createOrder={handleCreateOrder}
+                    createSubscription={handleCreateSubscription}
                     onApprove={handleApprove}
                     onError={(err: any) => {
-                      setError("Payment failed. Please try again.");
+                      console.error("PayPal Error:", err);
+                      setError(
+                        "An error occurred with PayPal. Please try again.",
+                      );
                       if (onError) onError(err);
                     }}
                   />

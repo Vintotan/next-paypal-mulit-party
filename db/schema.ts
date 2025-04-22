@@ -65,3 +65,26 @@ export const webhookEvents = pgTable("webhook_events", {
   payload: jsonb("payload"),
   processed: boolean("processed").default(false).notNull(),
 });
+
+// Subscriptions table to store active subscriptions
+export const subscriptions = pgTable("subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  paypalAccountId: uuid("paypal_account_id").references(
+    () => paypalAccounts.id,
+  ),
+  orgId: text("org_id")
+    .notNull()
+    .references(() => organizations.clerkId),
+  subscriptionId: text("subscription_id").notNull().unique(),
+  planId: text("plan_id"),
+  status: text("status").notNull(), // ACTIVE, SUSPENDED, CANCELLED, etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  startDate: timestamp("start_date"),
+  nextBillingDate: timestamp("next_billing_date"),
+  lastPaymentDate: timestamp("last_payment_date"),
+  lastPaymentAmount: text("last_payment_amount"),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  buyerEmail: text("buyer_email"),
+  metadata: jsonb("metadata"), // For additional details about the subscription
+});

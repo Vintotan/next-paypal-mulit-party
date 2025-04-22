@@ -28,6 +28,12 @@ type Transaction = {
   platformFee: string;
   createdAt: string;
   buyerEmail?: string;
+  paymentType?: "ONE_TIME" | "SUBSCRIPTION";
+  description?: string;
+  planId?: string;
+  planName?: string;
+  planPrice?: string;
+  planInterval?: string;
 };
 
 export function PaymentHistory() {
@@ -66,9 +72,23 @@ export function PaymentHistory() {
     checkAccountStatus();
   }, [organization?.id]);
 
+  // Fetch plan details for subscription transactions
+  const fetchPlanDetails = async (planId: string): Promise<string> => {
+    try {
+      const response = await fetch(`/api/paypal/plan-details?planId=${planId}`);
+      if (response.ok) {
+        const planData = await response.json();
+        return planData.name || "Unknown Plan";
+      }
+    } catch (err) {
+      console.error(`Error fetching plan details for ${planId}:`, err);
+    }
+    return "Unknown Plan";
+  };
+
   // Fetch transactions when the component mounts
   useEffect(() => {
-    const fetchTransactions = async () => {
+    const fetchAllTransactions = async () => {
       if (!organization?.id) return;
       if (isAccountActive === false) {
         setTransactions([]);
@@ -81,17 +101,95 @@ export function PaymentHistory() {
       setError(null);
 
       try {
+        // Fetch one-time payments
         const timestamp = new Date().getTime();
-        const response = await fetch(
+        const oneTimeResponse = await fetch(
           `/api/paypal/transactions?orgId=${organization.id}&_t=${timestamp}`,
         );
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch transactions");
+        let oneTimePayments: Transaction[] = [];
+        if (oneTimeResponse.ok) {
+          const data = await oneTimeResponse.json();
+          // Add paymentType to each transaction
+          oneTimePayments = data.map((tx: Transaction) => ({
+            ...tx,
+            paymentType: "ONE_TIME" as const,
+          }));
         }
 
-        const data = await response.json();
-        setTransactions(data);
+        // Fetch subscription payments
+        const subscriptionResponse = await fetch(
+          `/api/paypal/subscription-transactions?orgId=${organization.id}&_t=${timestamp}`,
+        );
+
+        let subscriptionPayments: Transaction[] = [];
+        if (subscriptionResponse.ok) {
+          const subscriptionData = await subscriptionResponse.json();
+
+          // Process subscription data and fetch plan details for each subscription
+          subscriptionPayments = await Promise.all(
+            subscriptionData.map(async (sub: any) => {
+              // Pass through all subscription data, including planPrice and planInterval
+              let planName = sub.description || "Default Plan";
+
+              // If the subscription doesn't have price/interval but has planId, attempt to fetch it
+              if (sub.planId && (!sub.planPrice || !sub.planInterval)) {
+                try {
+                  const response = await fetch(
+                    `/api/paypal/plan-details?planId=${sub.planId}`,
+                  );
+                  if (response.ok) {
+                    const planData = await response.json();
+                    planName = planData.name || planName;
+
+                    // Extract price and interval if not already available
+                    if (
+                      !sub.planPrice &&
+                      planData.billing_cycles &&
+                      planData.billing_cycles.length > 0
+                    ) {
+                      const billingCycle =
+                        planData.billing_cycles.find(
+                          (cycle: any) => cycle.tenure_type === "REGULAR",
+                        ) || planData.billing_cycles[0];
+
+                      if (billingCycle?.pricing_scheme?.fixed_price?.value) {
+                        sub.planPrice =
+                          billingCycle.pricing_scheme.fixed_price.value;
+                      }
+
+                      if (billingCycle?.frequency?.interval_unit) {
+                        sub.planInterval =
+                          billingCycle.frequency.interval_unit.toLowerCase();
+                      }
+                    }
+                  }
+                } catch (err) {
+                  console.error(
+                    `Error fetching plan details for ${sub.planId}:`,
+                    err,
+                  );
+                }
+              }
+
+              return {
+                ...sub,
+                planName,
+              };
+            }),
+          );
+        }
+
+        // Combine and sort all transactions by date (newest first)
+        const allTransactions = [
+          ...oneTimePayments,
+          ...subscriptionPayments,
+        ].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+
+        setTransactions(allTransactions);
       } catch (err) {
         console.error("Error fetching transactions:", err);
         setError(
@@ -104,7 +202,7 @@ export function PaymentHistory() {
       }
     };
 
-    fetchTransactions();
+    fetchAllTransactions();
   }, [organization?.id, isAccountActive]);
 
   // Format amount with currency
@@ -132,15 +230,19 @@ export function PaymentHistory() {
 
     switch (status.toLowerCase()) {
       case "completed":
+      case "active":
         variant = "default"; // green
         break;
       case "created":
       case "pending":
+      case "approved":
         variant = "secondary"; // amber
         break;
       case "denied":
       case "voided":
       case "failed":
+      case "cancelled":
+      case "suspended":
         variant = "destructive"; // red
         break;
       default:
@@ -148,6 +250,14 @@ export function PaymentHistory() {
     }
 
     return <Badge variant={variant}>{status}</Badge>;
+  };
+
+  // Render payment type badge
+  const renderPaymentTypeBadge = (paymentType?: string) => {
+    if (paymentType === "SUBSCRIPTION") {
+      return <Badge variant="secondary">Subscription</Badge>;
+    }
+    return <Badge variant="outline">One-time</Badge>;
   };
 
   if (isAccountActive === false) {
@@ -210,6 +320,9 @@ export function PaymentHistory() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Plan</TableHead>
                   <TableHead>Order ID</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Fee</TableHead>
@@ -221,6 +334,26 @@ export function PaymentHistory() {
                 {transactions.map((tx) => (
                   <TableRow key={tx.id}>
                     <TableCell>{formatDate(tx.createdAt)}</TableCell>
+                    <TableCell>
+                      {renderPaymentTypeBadge(tx.paymentType)}
+                    </TableCell>
+                    <TableCell>{tx.description || "-"}</TableCell>
+                    <TableCell>
+                      {tx.paymentType === "SUBSCRIPTION" ? (
+                        tx.planPrice && tx.planInterval ? (
+                          <>
+                            {tx.planName || "Subscription"}
+                            <span className="ml-2 text-sm text-muted-foreground">
+                              ${tx.planPrice}/{tx.planInterval}
+                            </span>
+                          </>
+                        ) : (
+                          tx.planName || "-"
+                        )
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
                       {tx.orderId}
                     </TableCell>

@@ -226,6 +226,80 @@ export const paypalRouter = createTRPCRouter({
       },
     ),
 
+  // Initiate direct connection with PayPal (OAuth flow)
+  initiateDirectConnect: protectedProcedure
+    .input(z.object({ orgId: z.string() }))
+    .mutation(async ({ input }: { input: { orgId: string } }) => {
+      // In a real implementation, this would initiate the OAuth flow with PayPal
+      // and return the authorization URL to redirect the user
+
+      // For now, we'll simulate the success response
+      // This would typically generate an auth URL and initiate the OAuth flow
+
+      // Check if organization exists in our database
+      const orgs = await db.select().from(organizations);
+      const existingOrg = orgs.find((org) => org.clerkId === input.orgId);
+
+      if (!existingOrg) {
+        await db.insert(organizations).values({
+          id: crypto.randomUUID(),
+          clerkId: input.orgId,
+          name: "Organization " + input.orgId.substring(0, 8),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+
+      // Create a simulated merchant ID for this demo
+      const simulatedMerchantId = `MP-DEMO-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+
+      // Check if PayPal account already exists
+      const accounts = await db.select().from(paypalAccounts);
+      const existingAccount = accounts.find(
+        (account) => account.orgId === input.orgId,
+      );
+
+      if (existingAccount) {
+        const updatedAccount = {
+          ...existingAccount,
+          merchantId: simulatedMerchantId,
+          status: "active",
+          updatedAt: new Date(),
+        };
+
+        // Update in database
+        await db
+          .update(paypalAccounts)
+          .set({
+            merchantId: simulatedMerchantId,
+            status: "active",
+            updatedAt: new Date(),
+          })
+          .where(eq(paypalAccounts.id, existingAccount.id));
+
+        return updatedAccount;
+      }
+
+      // Create new account
+      const newAccount = {
+        id: crypto.randomUUID(),
+        orgId: input.orgId,
+        merchantId: simulatedMerchantId,
+        email: null,
+        businessName: null,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isLive: false,
+        webhookId: null,
+        credentials: null,
+      };
+
+      await db.insert(paypalAccounts).values(newAccount);
+
+      return newAccount;
+    }),
+
   // Legacy method for creating basic orders (without platform fee)
   createOrder: protectedProcedure.mutation(async () => {
     const request = new paypalClient.orders.OrdersCreateRequest();

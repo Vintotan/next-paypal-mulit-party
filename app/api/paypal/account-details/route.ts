@@ -31,14 +31,6 @@ export async function GET(request: NextRequest) {
 
     const account = accounts[0];
 
-    // Check if the account is inactive, treat as not found
-    if (account.status !== "active") {
-      return NextResponse.json(
-        { error: "No active PayPal account found for this organization" },
-        { status: 404 },
-      );
-    }
-
     // For security, we'll exclude sensitive credential information
     const sanitizedAccount = {
       id: account.id,
@@ -80,6 +72,58 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching PayPal account:", error);
     return NextResponse.json(
       { error: "Failed to fetch PayPal account details" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    // Get the organization ID from the query parameters
+    const orgId = request.nextUrl.searchParams.get("orgId");
+
+    if (!orgId) {
+      return NextResponse.json(
+        { error: "Organization ID is required" },
+        { status: 400 },
+      );
+    }
+
+    // Find the PayPal account for this organization
+    const accounts = await db
+      .select()
+      .from(paypalAccounts)
+      .where(eq(paypalAccounts.orgId, orgId));
+
+    if (!accounts || accounts.length === 0) {
+      return NextResponse.json(
+        { error: "No PayPal account found for this organization" },
+        { status: 404 },
+      );
+    }
+
+    const account = accounts[0];
+
+    // Delete the PayPal account record completely
+    // This ensures a complete disconnection
+    await db.delete(paypalAccounts).where(eq(paypalAccounts.id, account.id));
+
+    // Set cache headers to prevent stale data
+    return NextResponse.json(
+      {
+        success: true,
+        message: "PayPal account successfully disconnected",
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      },
+    );
+  } catch (error) {
+    console.error("Error disconnecting PayPal account:", error);
+    return NextResponse.json(
+      { error: "Failed to disconnect PayPal account" },
       { status: 500 },
     );
   }

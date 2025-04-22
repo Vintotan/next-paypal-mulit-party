@@ -21,7 +21,7 @@ export function ClerkStatus() {
   }, [isLoaded, isSignedIn, user]);
 
   return (
-    <div className="fixed bottom-4 right-4 p-4 border rounded shadow-lg text-sm z-50 max-w-xs bg-card">
+    <div className="p-4 border rounded shadow-lg text-sm z-50 max-w-xs bg-card">
       <h4 className="font-bold mb-2">Clerk Status</h4>
       <ul className="space-y-1">
         <li>

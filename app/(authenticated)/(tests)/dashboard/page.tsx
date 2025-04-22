@@ -20,6 +20,8 @@ import { useSearchParams } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CreateOrganization } from "@/components/clerk/CreateOrganization";
 import { EnvDebug } from "@/components/debug/EnvDebug";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle2 } from "lucide-react";
 
 // Dashboard content component that uses useSearchParams
 function DashboardContent() {
@@ -149,34 +151,23 @@ function DashboardContent() {
         </TabsContent>
 
         <TabsContent value="checkout" className="mt-8">
-          <Card>
+          <Card className="bg-background border-none shadow-none">
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Test PayPal Checkout with Platform Fee</CardTitle>
+              <div className="flex justify-center items-center">
                 {organization && (
                   <PayPalConnectionStatus
-                    key={`checkout-status-${paypalConnectionRefresh}`}
+                    key={`connection-status-${paypalConnectionRefresh}`}
                   />
                 )}
               </div>
-              <CardDescription>
-                Process a test payment with a platform fee included
-              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-6">
-                <p className="text-sm text-foreground mb-4">
-                  This example shows a payment of $100 with a $5 platform fee.
-                  The seller receives $95 and the platform (you) receives $5.
-                </p>
-                <Separator className="my-4" />
-                <PayPalCheckout
-                  amount="100.00"
-                  platformFee="5.00"
-                  currency="USD"
-                  description="Test purchase with platform fee"
-                />
-              </div>
+              <PayPalCheckout
+                amount="100.00"
+                platformFee="5.00"
+                currency="USD"
+                description="Test purchase with platform fee"
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -188,9 +179,13 @@ function DashboardContent() {
           <div className="flex justify-between items-center">
             <CardTitle>Organization Status</CardTitle>
             {organization && (
-              <PayPalConnectionStatus
-                key={`org-status-${paypalConnectionRefresh}`}
-              />
+              <Badge
+                variant="default"
+                className="bg-blue-50 border-blue-200 text-blue-700 text-xs font-medium"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 text-blue-700 mr-1" />
+                Clerk Organization Connected
+              </Badge>
             )}
           </div>
           <CardDescription>

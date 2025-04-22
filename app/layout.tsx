@@ -45,11 +45,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <ClerkProviderWrapper>
-            {children}
-            {/* Only show debug component in development */}
-            {isDev && <ClerkStatus />}
-          </ClerkProviderWrapper>
+          <ClerkProviderWrapper>{children}</ClerkProviderWrapper>
         </ThemeProvider>
       </body>
     </html>
