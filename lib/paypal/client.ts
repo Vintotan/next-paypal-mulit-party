@@ -1,4 +1,4 @@
-import checkoutNodeJssdk from "@paypal/checkout-server-sdk";
+import checkoutNodeSdk from "@paypal/checkout-server-sdk";
 
 export type PayPalEnvironmentConfig = {
   clientId: string;
@@ -19,8 +19,8 @@ const defaultEnv = {
 export const createEnvironment = (config: PayPalEnvironmentConfig) => {
   const Environment =
     config.mode === "live"
-      ? checkoutNodeJssdk.core.LiveEnvironment
-      : checkoutNodeJssdk.core.SandboxEnvironment;
+      ? checkoutNodeSdk.core.LiveEnvironment
+      : checkoutNodeSdk.core.SandboxEnvironment;
 
   return new Environment(config.clientId, config.clientSecret);
 };
@@ -30,7 +30,7 @@ export const createPayPalClient = (
   config: PayPalEnvironmentConfig = defaultEnv,
 ) => {
   const environment = createEnvironment(config);
-  return new checkoutNodeJssdk.core.PayPalHttpClient(environment);
+  return new checkoutNodeSdk.core.PayPalHttpClient(environment);
 };
 
 // Default client using app-level credentials

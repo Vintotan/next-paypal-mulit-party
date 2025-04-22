@@ -3,6 +3,8 @@
 import { ConnectPayPal } from "@/components/paypal/ConnectPayPal";
 import { PayPalCheckout } from "@/components/paypal/PayPalCheckout";
 import { PayPalConnectionStatus } from "@/components/paypal/PayPalConnectionStatus";
+import { PaymentHistory } from "@/components/paypal/PaymentHistory";
+import { PayPalAccountDetails } from "@/components/paypal/PayPalAccountDetails";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
@@ -13,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useOrganization, useClerk } from "@clerk/nextjs";
-import { useEffect, Suspense } from "react";
+import { useEffect, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CreateOrganization } from "@/components/clerk/CreateOrganization";
@@ -24,6 +26,7 @@ function DashboardContent() {
   const { organization, isLoaded } = useOrganization();
   const clerk = useClerk();
   const searchParams = useSearchParams();
+  const [paypalConnectionRefresh, setPaypalConnectionRefresh] = useState(0);
 
   // Debug state for component mounting
   useEffect(() => {
@@ -72,15 +75,20 @@ function DashboardContent() {
     setActiveOrg();
   }, [searchParams, clerk, organization]);
 
+  // Handle PayPal connection updates
+  const handlePayPalConnectionUpdate = () => {
+    // Increment the refresh counter to trigger a rerender of dependent components
+    setPaypalConnectionRefresh((prev) => prev + 1);
+    console.log("[PayPal Debug] Connection status updated, triggering refresh");
+  };
+
   // For debugging - show additional info in development
   const isDevelopment = process.env.NODE_ENV === "development";
 
   if (isLoaded && !organization) {
     return (
       <main className="container mx-auto py-10 px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold mb-8">
-          Multi-Party PayPal Integration
-        </h1>
+        <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
 
         {isDevelopment && <EnvDebug />}
 
@@ -114,40 +122,8 @@ function DashboardContent() {
   }
 
   return (
-    <main className="container mx-auto py-10 px-4 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold mb-8">
-        Multi-Party PayPal Integration
-      </h1>
-
-      {isDevelopment && <EnvDebug />}
-
-      {/* Debug information */}
-      <Alert className="mb-4">
-        <AlertDescription>
-          <div className="font-mono text-xs">
-            <div>Clerk Status: {clerk.loaded ? "Loaded" : "Loading"}</div>
-            <div>Organization Component: {isLoaded ? "Loaded" : "Loading"}</div>
-            <div>Current Org: {organization ? organization.name : "None"}</div>
-          </div>
-        </AlertDescription>
-      </Alert>
-
-      {/* Organization info */}
-      <Card className="w-full mb-8">
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Organization Status</CardTitle>
-            {organization && <PayPalConnectionStatus />}
-          </div>
-          <CardDescription>
-            {!isLoaded
-              ? "Loading organization information..."
-              : organization
-                ? `Connected to ${organization.name}`
-                : "No organization selected. Use the Organization Switcher in the header to select or create one."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+    <main className="container mx-auto py-10 px-4 sm:px-6 lg:px-8 space-y-8">
+      <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
 
       <Tabs defaultValue="connect">
         <TabsList className="grid w-full grid-cols-2">
@@ -155,19 +131,19 @@ function DashboardContent() {
           <TabsTrigger value="checkout">Test Checkout</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="connect" className="mt-8">
-          <Card>
+        <TabsContent value="connect">
+          <Card className="bg-background border-none shadow-none">
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Connect Your PayPal Account</CardTitle>
-                {organization && <PayPalConnectionStatus />}
+              <div className="flex justify-center items-center">
+                {organization && (
+                  <PayPalConnectionStatus
+                    key={`connection-status-${paypalConnectionRefresh}`}
+                  />
+                )}
               </div>
-              <CardDescription>
-                Link your PayPal merchant account to enable multi-party payments
-              </CardDescription>
             </CardHeader>
             <CardContent>
-              <ConnectPayPal />
+              <ConnectPayPal onSuccess={handlePayPalConnectionUpdate} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -177,7 +153,11 @@ function DashboardContent() {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>Test PayPal Checkout with Platform Fee</CardTitle>
-                {organization && <PayPalConnectionStatus />}
+                {organization && (
+                  <PayPalConnectionStatus
+                    key={`checkout-status-${paypalConnectionRefresh}`}
+                  />
+                )}
               </div>
               <CardDescription>
                 Process a test payment with a platform fee included
@@ -185,7 +165,7 @@ function DashboardContent() {
             </CardHeader>
             <CardContent>
               <div className="mb-6">
-                <p className="text-sm text-gray-500 mb-4">
+                <p className="text-sm text-foreground mb-4">
                   This example shows a payment of $100 with a $5 platform fee.
                   The seller receives $95 and the platform (you) receives $5.
                 </p>
@@ -201,6 +181,35 @@ function DashboardContent() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Organization info */}
+      <Card className="w-full">
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Organization Status</CardTitle>
+            {organization && (
+              <PayPalConnectionStatus
+                key={`org-status-${paypalConnectionRefresh}`}
+              />
+            )}
+          </div>
+          <CardDescription>
+            {!isLoaded
+              ? "Loading organization information..."
+              : organization
+                ? `Connected to ${organization.name}`
+                : "No organization selected. Use the Organization Switcher in the header to select or create one."}
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      {/* PayPal Account Details Card */}
+      <PayPalAccountDetails
+        key={`account-details-${paypalConnectionRefresh}`}
+      />
+
+      {/* Transaction History Card */}
+      <PaymentHistory key={`payment-history-${paypalConnectionRefresh}`} />
     </main>
   );
 }

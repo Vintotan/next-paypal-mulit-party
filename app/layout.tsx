@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProviderWrapper } from "@/components/providers/clerk-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import "./globals.css";
 // Import the environment configuration to ensure it's loaded
 import { env } from "./env";
@@ -36,18 +37,20 @@ export default function RootLayout({
   const isDev = process.env.NODE_ENV === "development";
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <title>PayPal Multi-Party Platform</title>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ClerkProviderWrapper>
-          {children}
-          {/* Only show debug component in development */}
-          {isDev && <ClerkStatus />}
-        </ClerkProviderWrapper>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <ClerkProviderWrapper>
+            {children}
+            {/* Only show debug component in development */}
+            {isDev && <ClerkStatus />}
+          </ClerkProviderWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,5 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { captureOrder } from "@/lib/paypal/multiparty";
+import { db } from "@/db";
+import { transactions, paypalAccounts } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+// Define a type for the PayPal capture result
+type PayPalCaptureResult = {
+  id: string;
+  status: string;
+  purchase_units?: Array<{
+    payments?: {
+      captures?: Array<{
+        id: string;
+        status: string;
+        amount: {
+          value: string;
+          currency_code: string;
+        };
+        payer?: {
+          email_address?: string;
+        };
+      }>;
+    };
+    payment_instruction?: {
+      platform_fees?: Array<{
+        amount: {
+          value: string;
+        };
+      }>;
+    };
+  }>;
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,16 +44,92 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await captureOrder({
+    console.log("Capturing PayPal order:", { orgId, orderId });
+
+    const result = (await captureOrder({
       orgId,
       orderId,
-    });
+    })) as PayPalCaptureResult;
+
+    console.log("Order captured successfully:", result.id);
+
+    // Record the transaction in the database
+    try {
+      // Find the PayPal account for this organization
+      const accounts = await db
+        .select()
+        .from(paypalAccounts)
+        .where(eq(paypalAccounts.orgId, orgId));
+
+      if (accounts && accounts.length > 0) {
+        const paypalAccountId = accounts[0].id;
+
+        // Get transaction details from the capture result
+        const captureId = result.id;
+        const purchaseUnit = result.purchase_units?.[0];
+        const capture = purchaseUnit?.payments?.captures?.[0];
+
+        if (capture) {
+          // Extract data from the capture
+          const amount = capture.amount.value;
+          const currency = capture.amount.currency_code;
+          const status = capture.status;
+
+          // Calculate platform fee if available
+          const platformFee =
+            purchaseUnit?.payment_instruction?.platform_fees?.[0]?.amount
+              ?.value || "0.00";
+
+          // Get buyer email if available
+          const buyerEmail = capture.payer?.email_address;
+
+          // Insert transaction record
+          await db.insert(transactions).values({
+            paypalAccountId,
+            orderId,
+            amount,
+            currency,
+            status,
+            platformFee,
+            buyerEmail,
+            paymentDetails: result,
+          });
+
+          console.log("Transaction recorded successfully");
+        }
+      }
+    } catch (dbError) {
+      // We don't want to fail the capture if recording the transaction fails
+      console.error("Error recording transaction:", dbError);
+    }
 
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error capturing PayPal order:", error);
+
+    // Extract more detailed error information
+    let errorMessage = "Failed to capture PayPal order";
+    let errorDetails = null;
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+
+      // Try to parse PayPal API error details if available
+      try {
+        const errorJson = JSON.parse(error.message);
+        if (errorJson.details) {
+          errorDetails = errorJson.details;
+        }
+      } catch (e) {
+        // Not a JSON error message, use as is
+      }
+    }
+
     return NextResponse.json(
-      { error: "Failed to capture PayPal order" },
+      {
+        error: errorMessage,
+        details: errorDetails,
+      },
       { status: 500 },
     );
   }

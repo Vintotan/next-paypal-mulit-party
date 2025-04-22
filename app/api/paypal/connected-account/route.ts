@@ -21,6 +21,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(null, { status: 404 });
     }
 
+    // Check if the account is active
+    if (account.status !== "active") {
+      return NextResponse.json(null, { status: 404 });
+    }
+
     return NextResponse.json(account);
   } catch (error) {
     console.error("Error fetching connected account:", error);

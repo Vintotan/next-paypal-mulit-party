@@ -1,6 +1,7 @@
-import { createPayPalClient, PayPalEnvironmentConfig } from "./client";
+import { createPayPalClient } from "./client";
 import { db } from "@/db";
 import { paypalAccounts } from "@/db/schema";
+import checkoutNodeSdk from "@paypal/checkout-server-sdk";
 
 // Get a merchant-specific PayPal client based on organization ID
 export async function getMerchantPayPalClient(orgId: string) {
@@ -33,9 +34,20 @@ export async function createOrderWithPlatformFee({
     throw new Error("Merchant PayPal account not found");
   }
 
-  // Create order with platform fee
-  const request = new client.orders.OrdersCreateRequest();
+  // Log merchant account details for debugging
+  console.log("Creating order with merchant account:", {
+    merchantId: merchantAccount.merchantId,
+    email: merchantAccount.email,
+    status: merchantAccount.status,
+  });
+
+  // Create a new OrdersCreateRequest
+  const request = new checkoutNodeSdk.orders.OrdersCreateRequest();
   request.prefer("return=representation");
+
+  // Parse and format monetary values
+  const amountValue = parseFloat(amount);
+  const feeValue = parseFloat(platformFee);
 
   request.requestBody({
     intent: "CAPTURE",
@@ -43,25 +55,17 @@ export async function createOrderWithPlatformFee({
       {
         amount: {
           currency_code: currency,
-          value: amount,
-          breakdown: {
-            item_total: {
-              currency_code: currency,
-              value: amount,
-            },
-          },
+          value: amountValue.toFixed(2),
         },
-        description,
-        payee: {
-          merchant_id: merchantAccount.merchantId,
-          email_address: merchantAccount.email || undefined,
-        },
+        description: description || "Purchase",
+        // Platform fee handling - simpler approach without nested breakdown
         payment_instruction: {
+          disbursement_mode: "INSTANT",
           platform_fees: [
             {
               amount: {
                 currency_code: currency,
-                value: platformFee,
+                value: feeValue.toFixed(2),
               },
             },
           ],
@@ -70,8 +74,13 @@ export async function createOrderWithPlatformFee({
     ],
   });
 
-  const response = await client.execute(request);
-  return response.result;
+  try {
+    const response = await client.execute(request);
+    return response.result;
+  } catch (err) {
+    console.error("PayPal API error:", err);
+    throw err;
+  }
 }
 
 // Capture a previously created PayPal order
@@ -84,11 +93,16 @@ export async function captureOrder({
 }) {
   const client = await getMerchantPayPalClient(orgId);
 
-  const request = new client.orders.OrdersCaptureRequest(orderId);
+  const request = new checkoutNodeSdk.orders.OrdersCaptureRequest(orderId);
   request.prefer("return=representation");
 
-  const response = await client.execute(request);
-  return response.result;
+  try {
+    const response = await client.execute(request);
+    return response.result;
+  } catch (err) {
+    console.error("PayPal API error:", err);
+    throw err;
+  }
 }
 
 // Setup webhook for merchant

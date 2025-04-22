@@ -46,18 +46,20 @@ export const paypalRouter = createTRPCRouter({
 
         // Check if organization exists in our database
         const orgs = await db.select().from(organizations);
-        const existingOrg = orgs.find(org => org.clerkId === input.orgId);
-        
+        const existingOrg = orgs.find((org) => org.clerkId === input.orgId);
+
         if (!existingOrg) {
           await db.insert(organizations).values({
             id: crypto.randomUUID(),
             clerkId: input.orgId,
-            name: input.businessName || 'Organization ' + input.orgId.substring(0, 8),
+            name:
+              input.businessName ||
+              "Organization " + input.orgId.substring(0, 8),
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
           });
         }
-        
+
         // Check if PayPal account already exists
         const accounts = await db.select().from(paypalAccounts);
         const existingAccount = accounts.find(
@@ -73,18 +75,19 @@ export const paypalRouter = createTRPCRouter({
             status: "active",
             updatedAt: new Date(),
           };
-          
+
           // Update in database
-          await db.update(paypalAccounts)
+          await db
+            .update(paypalAccounts)
             .set({
               merchantId: input.merchantId,
               email: input.email,
               businessName: input.businessName,
               status: "active",
-              updatedAt: new Date()
+              updatedAt: new Date(),
             })
             .where(eq(paypalAccounts.id, existingAccount.id));
-          
+
           return updatedAccount;
         }
 
@@ -102,12 +105,41 @@ export const paypalRouter = createTRPCRouter({
           webhookId: null,
           credentials: null,
         };
-        
+
         await db.insert(paypalAccounts).values(newAccount);
-        
+
         return newAccount;
       },
     ),
+
+  // Disconnect a PayPal account from an organization
+  disconnectAccount: protectedProcedure
+    .input(z.object({ orgId: z.string() }))
+    .mutation(async ({ input }: { input: { orgId: string } }) => {
+      // Find the account
+      const accounts = await db.select().from(paypalAccounts);
+      const existingAccount = accounts.find(
+        (account) => account.orgId === input.orgId,
+      );
+
+      if (!existingAccount) {
+        throw new Error("No PayPal account found for this organization");
+      }
+
+      // Update the account status to inactive
+      await db
+        .update(paypalAccounts)
+        .set({
+          status: "inactive",
+          updatedAt: new Date(),
+        })
+        .where(eq(paypalAccounts.id, existingAccount.id));
+
+      // In a real application, you might also need to disconnect webhooks
+      // or perform other cleanup with the PayPal API
+
+      return { success: true };
+    }),
 
   // Create order with platform fee
   createOrderWithFee: protectedProcedure

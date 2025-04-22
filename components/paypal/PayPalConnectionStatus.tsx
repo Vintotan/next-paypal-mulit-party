@@ -24,11 +24,15 @@ export function PayPalConnectionStatus() {
       const response = await fetch(
         `/api/paypal/connected-account?orgId=${organization.id}&_t=${timestamp}`,
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         setAccountDetails(data);
-        setStatus("connected");
+        if (data.status === "active") {
+          setStatus("connected");
+        } else {
+          setStatus("disconnected");
+        }
       } else if (response.status === 404) {
         setStatus("disconnected");
       } else {
