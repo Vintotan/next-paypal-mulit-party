@@ -3,10 +3,6 @@ if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
   console.error("Missing NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY");
 }
 
-if (!process.env.CLERK_SECRET_KEY) {
-  console.error("Missing CLERK_SECRET_KEY");
-}
-
 export const env = {
   clerk: {
     publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
