@@ -7,8 +7,9 @@ import {
   setupMerchantWebhook,
 } from "@/lib/paypal/multiparty";
 import { db } from "@/db";
-import { paypalAccounts } from "@/db/schema";
+import { paypalAccounts, organizations } from "@/db/schema";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 
 export const paypalRouter = createTRPCRouter({
   // Get connected PayPal account for the organization
@@ -43,27 +44,52 @@ export const paypalRouter = createTRPCRouter({
         // In a real application, this would involve OAuth flow with PayPal
         // Here we're simulating account connection with direct merchant data
 
-        // Check if account already exists
+        // Check if organization exists in our database
+        const orgs = await db.select().from(organizations);
+        const existingOrg = orgs.find(org => org.clerkId === input.orgId);
+        
+        if (!existingOrg) {
+          await db.insert(organizations).values({
+            id: crypto.randomUUID(),
+            clerkId: input.orgId,
+            name: input.businessName || 'Organization ' + input.orgId.substring(0, 8),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
+        
+        // Check if PayPal account already exists
         const accounts = await db.select().from(paypalAccounts);
         const existingAccount = accounts.find(
           (account) => account.orgId === input.orgId,
         );
 
         if (existingAccount) {
-          // In a real implementation, you'd use proper updates here
-          // For now, return simulated updated account
-          return {
+          const updatedAccount = {
             ...existingAccount,
             merchantId: input.merchantId,
-            email: input.email,
-            businessName: input.businessName,
+            email: input.email || existingAccount.email,
+            businessName: input.businessName || existingAccount.businessName,
             status: "active",
+            updatedAt: new Date(),
           };
+          
+          // Update in database
+          await db.update(paypalAccounts)
+            .set({
+              merchantId: input.merchantId,
+              email: input.email,
+              businessName: input.businessName,
+              status: "active",
+              updatedAt: new Date()
+            })
+            .where(eq(paypalAccounts.id, existingAccount.id));
+          
+          return updatedAccount;
         }
 
-        // In a real implementation, you'd insert the account here
-        // For now, return simulated new account
-        return {
+        // Create new account
+        const newAccount = {
           id: crypto.randomUUID(),
           orgId: input.orgId,
           merchantId: input.merchantId,
@@ -73,7 +99,13 @@ export const paypalRouter = createTRPCRouter({
           createdAt: new Date(),
           updatedAt: new Date(),
           isLive: false,
+          webhookId: null,
+          credentials: null,
         };
+        
+        await db.insert(paypalAccounts).values(newAccount);
+        
+        return newAccount;
       },
     ),
 
