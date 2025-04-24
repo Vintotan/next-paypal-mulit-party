@@ -24,7 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
@@ -42,7 +41,6 @@ type PayPalAccount = {
 };
 
 export function PayPalAccountDetails() {
-  const router = useRouter();
   const { organization } = useOrganization();
   const [account, setAccount] = useState<PayPalAccount | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,7 +62,6 @@ export function PayPalAccountDetails() {
         {
           headers: {
             "Cache-Control": "no-cache",
-            Pragma: "no-cache",
           },
         },
       );
@@ -81,12 +78,9 @@ export function PayPalAccountDetails() {
       }
 
       const data = await response.json();
-      if (data.account && data.account.status === "active") {
-        setAccount(data.account);
-      } else {
-        // If status is not active, treat as disconnected
-        setAccount(null);
-      }
+      setAccount(
+        data.account && data.account.status === "active" ? data.account : null,
+      );
     } catch (err) {
       console.error("Error fetching PayPal account details:", err);
       setError(

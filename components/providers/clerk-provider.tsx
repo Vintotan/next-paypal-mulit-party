@@ -4,7 +4,6 @@ import { ClerkProvider, ClerkLoaded, ClerkLoading } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import { dark } from "@clerk/themes";
 import { useTheme } from "next-themes";
-import { env } from "@/app/env";
 
 export function ClerkProviderWrapper({
   children,
@@ -18,7 +17,7 @@ export function ClerkProviderWrapper({
   );
 
   // Get publishable key from environment
-  const publishableKey = env.clerk.publishableKey;
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   // Add global event listener for Clerk errors
   useEffect(() => {

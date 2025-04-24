@@ -2,7 +2,6 @@
 
 import { TRPCProvider } from "@/lib/trpc/provider";
 import Link from "next/link";
-import { useEffect } from "react";
 import { UserMenu } from "@/components/ui/user-menu";
 
 export default function DashboardLayout({
@@ -10,15 +9,6 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Add a console log to confirm layout renders
-  useEffect(() => {
-    console.log("[Clerk Debug] Dashboard layout mounted");
-    console.log(
-      "[Clerk Debug] Checking if Clerk is available:",
-      typeof window !== "undefined" && !!(window as any).Clerk,
-    );
-  }, []);
-
   return (
     <TRPCProvider>
       <div className="min-h-screen flex flex-col">

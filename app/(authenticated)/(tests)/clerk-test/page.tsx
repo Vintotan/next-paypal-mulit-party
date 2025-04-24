@@ -1,15 +1,8 @@
 "use client";
 
-import {
-  useUser,
-  UserButton,
-  SignInButton,
-  OrganizationSwitcher,
-  useOrganization,
-} from "@clerk/nextjs";
+import { useUser, useOrganization } from "@clerk/nextjs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { env } from "@/app/env";
 import { Suspense } from "react";
 import {
   Table,
@@ -38,8 +31,8 @@ function ClerkTestContent() {
               NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
             </div>
             <div>
-              {env.clerk.publishableKey ? (
-                `${env.clerk.publishableKey}`
+              {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
+                `${process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}`
               ) : (
                 <span className="text-red-500">Missing</span>
               )}
@@ -47,7 +40,7 @@ function ClerkTestContent() {
 
             <div className="font-medium">CLERK_SECRET_KEY:</div>
             <div>
-              {env.clerk.publishableKey ? (
+              {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
                 <Badge variant="default" className="bg-green-600">
                   Available
                 </Badge>
@@ -130,9 +123,12 @@ function ClerkTestContent() {
                     ? // @ts-expect-error because Clerk is not defined in the window object
                       !!window.Clerk
                     : false,
-                key: env.clerk.publishableKey
+                key: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
                   ? "Set (first 6 chars: " +
-                    env.clerk.publishableKey.substring(0, 6) +
+                    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.substring(
+                      0,
+                      6,
+                    ) +
                     ")"
                   : "Not set",
               },

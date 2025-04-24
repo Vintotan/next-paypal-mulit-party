@@ -25,14 +25,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Creating PayPal order with:", {
-      orgId,
-      amount,
-      platformFee,
-      currency,
-      description,
-    });
-
     const order = (await createOrderWithPlatformFee({
       orgId,
       amount,
@@ -41,7 +33,6 @@ export async function POST(request: NextRequest) {
       description,
     })) as PayPalOrderResult;
 
-    console.log("Order created successfully:", order.id);
     return NextResponse.json(order);
   } catch (error) {
     console.error("Error creating PayPal order:", error);

@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 
 type Transaction = {
   id: string;
@@ -34,6 +35,26 @@ type Transaction = {
   planName?: string;
   planPrice?: string;
   planInterval?: string;
+};
+
+type PlanDetails = {
+  id: string;
+  name: string;
+  description?: string;
+  status?: string;
+  billing_cycles?: {
+    tenure_type: string;
+    frequency?: {
+      interval_unit: string;
+      interval_count?: number;
+    };
+    pricing_scheme?: {
+      fixed_price?: {
+        value: string;
+        currency_code: string;
+      };
+    };
+  }[];
 };
 
 export function PaymentHistory() {
@@ -55,6 +76,11 @@ export function PaymentHistory() {
         const timestamp = new Date().getTime();
         const response = await fetch(
           `/api/paypal/connected-account?orgId=${organization.id}&_t=${timestamp}`,
+          {
+            headers: {
+              "Cache-Control": "no-cache",
+            },
+          },
         );
 
         if (response.ok) {
@@ -71,20 +97,6 @@ export function PaymentHistory() {
 
     checkAccountStatus();
   }, [organization?.id]);
-
-  // Fetch plan details for subscription transactions
-  const fetchPlanDetails = async (planId: string): Promise<string> => {
-    try {
-      const response = await fetch(`/api/paypal/plan-details?planId=${planId}`);
-      if (response.ok) {
-        const planData = await response.json();
-        return planData.name || "Unknown Plan";
-      }
-    } catch (err) {
-      console.error(`Error fetching plan details for ${planId}:`, err);
-    }
-    return "Unknown Plan";
-  };
 
   // Fetch transactions when the component mounts
   useEffect(() => {
@@ -105,6 +117,11 @@ export function PaymentHistory() {
         const timestamp = new Date().getTime();
         const oneTimeResponse = await fetch(
           `/api/paypal/transactions?orgId=${organization.id}&_t=${timestamp}`,
+          {
+            headers: {
+              "Cache-Control": "no-cache",
+            },
+          },
         );
 
         let oneTimePayments: Transaction[] = [];
@@ -115,11 +132,21 @@ export function PaymentHistory() {
             ...tx,
             paymentType: "ONE_TIME" as const,
           }));
+        } else if (oneTimeResponse.status !== 404) {
+          const errorData = await oneTimeResponse.json();
+          throw new Error(
+            errorData.error || "Failed to fetch one-time payments",
+          );
         }
 
         // Fetch subscription payments
         const subscriptionResponse = await fetch(
           `/api/paypal/subscription-transactions?orgId=${organization.id}&_t=${timestamp}`,
+          {
+            headers: {
+              "Cache-Control": "no-cache",
+            },
+          },
         );
 
         let subscriptionPayments: Transaction[] = [];
@@ -128,7 +155,7 @@ export function PaymentHistory() {
 
           // Process subscription data and fetch plan details for each subscription
           subscriptionPayments = await Promise.all(
-            subscriptionData.map(async (sub: any) => {
+            subscriptionData.map(async (sub: Transaction) => {
               // Pass through all subscription data, including planPrice and planInterval
               let planName = sub.description || "Default Plan";
 
@@ -137,9 +164,14 @@ export function PaymentHistory() {
                 try {
                   const response = await fetch(
                     `/api/paypal/plan-details?planId=${sub.planId}`,
+                    {
+                      headers: {
+                        "Cache-Control": "no-cache",
+                      },
+                    },
                   );
                   if (response.ok) {
-                    const planData = await response.json();
+                    const planData: PlanDetails = await response.json();
                     planName = planData.name || planName;
 
                     // Extract price and interval if not already available
@@ -150,7 +182,7 @@ export function PaymentHistory() {
                     ) {
                       const billingCycle =
                         planData.billing_cycles.find(
-                          (cycle: any) => cycle.tenure_type === "REGULAR",
+                          (cycle) => cycle.tenure_type === "REGULAR",
                         ) || planData.billing_cycles[0];
 
                       if (billingCycle?.pricing_scheme?.fixed_price?.value) {
@@ -175,8 +207,14 @@ export function PaymentHistory() {
               return {
                 ...sub,
                 planName,
+                paymentType: "SUBSCRIPTION" as const,
               };
             }),
+          );
+        } else if (subscriptionResponse.status !== 404) {
+          const errorData = await subscriptionResponse.json();
+          throw new Error(
+            errorData.error || "Failed to fetch subscription payments",
           );
         }
 
@@ -225,33 +263,31 @@ export function PaymentHistory() {
 
   // Render status badge with color
   const renderStatusBadge = (status: string) => {
-    let variant: "default" | "secondary" | "destructive" | "outline" | null =
-      null;
+    let variant: "default" | "secondary" | "destructive" | "outline" =
+      "outline";
     let displayText = status;
 
     switch (status.toUpperCase()) {
-      case "completed":
+      case "COMPLETED":
         variant = "default"; // green
-        displayText = "paid";
+        displayText = "Paid";
         break;
-      case "active":
+      case "ACTIVE":
         variant = "default"; // green
-        displayText = "subscribed";
+        displayText = "Subscribed";
         break;
-      case "created":
-      case "pending":
-      case "approved":
+      case "CREATED":
+      case "PENDING":
+      case "APPROVED":
         variant = "secondary"; // amber
         break;
-      case "denied":
-      case "voided":
-      case "failed":
-      case "cancelled":
-      case "suspended":
+      case "DENIED":
+      case "VOIDED":
+      case "FAILED":
+      case "CANCELLED":
+      case "SUSPENDED":
         variant = "destructive"; // red
         break;
-      default:
-        variant = "outline"; // gray
     }
 
     return <Badge variant={variant}>{displayText}</Badge>;
@@ -286,6 +322,9 @@ export function PaymentHistory() {
           <CardTitle>Payment History</CardTitle>
           <CardDescription>Loading transaction history...</CardDescription>
         </CardHeader>
+        <CardContent className="flex justify-center py-8">
+          <Spinner />
+        </CardContent>
       </Card>
     );
   }
@@ -303,9 +342,6 @@ export function PaymentHistory() {
     );
   }
 
-  // Check if we have any transaction data
-  const hasTransactions = transactions && transactions.length > 0;
-
   return (
     <Card>
       <CardHeader>
@@ -315,7 +351,7 @@ export function PaymentHistory() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!hasTransactions ? (
+        {!transactions.length ? (
           <p className="text-muted-foreground text-center py-8">
             No transactions found
           </p>

@@ -4,13 +4,10 @@ import { eq, desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
-  console.log("Transactions API: Request received");
   try {
     // Get orgId from query params
     const { searchParams } = new URL(request.url);
     const orgId = searchParams.get("orgId");
-
-    console.log(`Transactions API: Processing request for orgId: ${orgId}`);
 
     if (!orgId) {
       return NextResponse.json(
@@ -27,9 +24,6 @@ export async function GET(request: NextRequest) {
       .limit(1);
 
     if (!accounts.length) {
-      console.log(
-        `Transactions API: No PayPal account found for orgId: ${orgId}`,
-      );
       return NextResponse.json(
         { error: "No PayPal account found for this organization" },
         { status: 404 },
@@ -40,22 +34,16 @@ export async function GET(request: NextRequest) {
 
     // If the account is not active, return an empty array
     if (account.status !== "active") {
-      console.log(`Transactions API: Account not active for orgId: ${orgId}`);
       return NextResponse.json([]);
     }
 
     // Query the database to get all transactions for the account, ordered by creation date
-    console.log(
-      `Transactions API: Fetching transactions for paypalAccountId: ${account.id}`,
-    );
     const result = await db
       .select()
       .from(transactions)
       .where(eq(transactions.paypalAccountId, account.id))
       .orderBy(desc(transactions.createdAt))
       .limit(50);
-
-    console.log(`Transactions API: Found ${result.length} transactions`);
 
     // Format the response
     const formattedTransactions = result.map((tx) => {
@@ -83,7 +71,7 @@ export async function GET(request: NextRequest) {
         } catch (e) {
           // If JSON parsing fails, keep default description
           console.error(
-            `Transactions API: Error parsing payment details for transaction ${tx.id}:`,
+            `Error parsing payment details for transaction ${tx.id}:`,
             e,
           );
         }
@@ -103,15 +91,9 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    console.log(
-      `Transactions API: Returning ${formattedTransactions.length} formatted transactions`,
-    );
     return NextResponse.json(formattedTransactions);
   } catch (error) {
-    console.error(
-      "Transactions API: Error fetching transaction history:",
-      error,
-    );
+    console.error("Error fetching transaction history:", error);
     return NextResponse.json(
       { error: "Failed to fetch transaction history" },
       { status: 500 },

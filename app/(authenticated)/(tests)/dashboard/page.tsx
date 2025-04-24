@@ -13,13 +13,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { useOrganization, useClerk } from "@clerk/nextjs";
 import { useEffect, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CreateOrganization } from "@/components/clerk/CreateOrganization";
-import { EnvDebug } from "@/components/debug/EnvDebug";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2 } from "lucide-react";
 
@@ -30,36 +28,14 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const [paypalConnectionRefresh, setPaypalConnectionRefresh] = useState(0);
 
-  // Debug state for component mounting
-  useEffect(() => {
-    console.log("[Clerk Debug] Dashboard page mounted");
-    console.log("[Clerk Debug] Organization state:", {
-      isLoaded,
-      hasOrg: !!organization,
-      orgId: organization?.id,
-      orgName: organization?.name,
-    });
-    console.log("[Clerk Debug] Clerk object:", {
-      loaded: clerk.loaded,
-      userId: clerk.user?.id,
-      sessionId: clerk.session?.id,
-    });
-  }, [isLoaded, organization, clerk]);
-
   // Handle the set_active_org parameter from middleware
   useEffect(() => {
     const setActiveOrg = async () => {
       const activeOrgParam = searchParams.get("set_active_org");
 
       if (activeOrgParam && clerk.loaded && !organization) {
-        console.log(
-          "[Clerk Debug] Setting active organization from URL param:",
-          activeOrgParam,
-        );
-
         try {
           await clerk.setActive({ organization: activeOrgParam });
-          console.log("[Clerk Debug] Successfully set active organization");
 
           // Remove the parameter and reload
           const newUrl = new URL(window.location.href);
@@ -81,7 +57,6 @@ function DashboardContent() {
   const handlePayPalConnectionUpdate = () => {
     // Increment the refresh counter to trigger a rerender of dependent components
     setPaypalConnectionRefresh((prev) => prev + 1);
-    console.log("[PayPal Debug] Connection status updated, triggering refresh");
   };
 
   // For debugging - show additional info in development
@@ -91,8 +66,6 @@ function DashboardContent() {
     return (
       <main className="container mx-auto py-10 px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
-
-        {isDevelopment && <EnvDebug />}
 
         <Alert className="mb-4">
           <AlertDescription>

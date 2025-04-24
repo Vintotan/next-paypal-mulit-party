@@ -12,12 +12,42 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { Spinner } from "@/components/ui/spinner";
 
 type PayPalSubscriptionProps = {
   planId: string;
   description?: string;
   onSuccess?: (details: any) => void;
   onError?: (error: any) => void;
+};
+
+type ConnectedAccount = {
+  id: string;
+  status: string;
+  merchantId: string;
+  email?: string;
+  businessName?: string;
+};
+
+type PlanDetails = {
+  id: string;
+  name: string;
+  description?: string;
+  status?: string;
+  billing_cycles?: {
+    tenure_type: string;
+    frequency?: {
+      interval_unit: string;
+      interval_count?: number;
+    };
+    total_cycles?: number;
+    pricing_scheme?: {
+      fixed_price: {
+        value: string;
+        currency_code: string;
+      };
+    };
+  }[];
 };
 
 export function PayPalSubscription({
@@ -31,9 +61,10 @@ export function PayPalSubscription({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
-  const [connectedAccount, setConnectedAccount] = useState<any>(null);
+  const [connectedAccount, setConnectedAccount] =
+    useState<ConnectedAccount | null>(null);
   const [accountLoading, setAccountLoading] = useState(false);
-  const [planDetails, setPlanDetails] = useState<any>(null);
+  const [planDetails, setPlanDetails] = useState<PlanDetails | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
 
   // Check if organization has a connected PayPal account
@@ -44,13 +75,22 @@ export function PayPalSubscription({
     try {
       const response = await fetch(
         `/api/paypal/connected-account?orgId=${organization.id}`,
+        {
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        },
       );
-      if (response.ok) {
-        const data = await response.json();
-        setConnectedAccount(data);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch connected account");
       }
+
+      const data = await response.json();
+      setConnectedAccount(data);
     } catch (err) {
       console.error("Failed to fetch connected account:", err);
+      setConnectedAccount(null);
     } finally {
       setAccountLoading(false);
     }
@@ -62,13 +102,21 @@ export function PayPalSubscription({
 
     setPlanLoading(true);
     try {
-      const response = await fetch(`/api/paypal/plan-details?planId=${planId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setPlanDetails(data);
-      } else {
+      const response = await fetch(
+        `/api/paypal/plan-details?planId=${planId}`,
+        {
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        },
+      );
+
+      if (!response.ok) {
         throw new Error("Failed to fetch plan details");
       }
+
+      const data = await response.json();
+      setPlanDetails(data);
     } catch (err) {
       console.error("Failed to fetch plan details:", err);
       setError(
@@ -112,18 +160,12 @@ export function PayPalSubscription({
         }),
       });
 
-      const responseData = await response.json();
-
       if (!response.ok) {
-        // Try to extract detailed error message from the response
-        let errorMsg = "Failed to create subscription";
-        if (responseData.error) {
-          errorMsg = responseData.error;
-          console.error("Subscription creation error:", responseData);
-        }
-        throw new Error(errorMsg);
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create subscription");
       }
 
+      const responseData = await response.json();
       setSubscriptionId(responseData.id);
       return responseData.id;
     } catch (err) {
@@ -159,18 +201,12 @@ export function PayPalSubscription({
         }),
       });
 
-      const responseData = await response.json();
-
       if (!response.ok) {
-        // Try to extract detailed error message from the response
-        let errorMsg = "Failed to validate subscription";
-        if (responseData.error) {
-          errorMsg = responseData.error;
-          console.error("Subscription validation error:", responseData);
-        }
-        throw new Error(errorMsg);
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to validate subscription");
       }
 
+      const responseData = await response.json();
       setSuccess(true);
       if (onSuccess) onSuccess(responseData);
       return responseData;
@@ -210,9 +246,8 @@ export function PayPalSubscription({
         )}
 
         {success && (
-          <Alert className="bg-green-600/30 border-green-600">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">
+          <Alert className="bg-green-600/10 border-green-600">
+            <AlertTitle className="text-green-700">
               Subscription Successful
             </AlertTitle>
             <AlertDescription className="text-green-700">
@@ -221,7 +256,11 @@ export function PayPalSubscription({
           </Alert>
         )}
 
-        {(accountLoading || planLoading) && <p>Loading...</p>}
+        {(accountLoading || planLoading) && (
+          <div className="flex justify-center py-4">
+            <Spinner />
+          </div>
+        )}
 
         {!isAccountConnected && !accountLoading && (
           <Alert>
@@ -237,7 +276,7 @@ export function PayPalSubscription({
         {isAccountConnected && planDetails && !success && (
           <div className="space-y-4">
             {planDetails.billing_cycles &&
-              planDetails.billing_cycles.map((cycle: any, index: number) => (
+              planDetails.billing_cycles.map((cycle, index) => (
                 <div key={index} className="space-y-2">
                   <div className="flex justify-between">
                     <span>
@@ -247,13 +286,13 @@ export function PayPalSubscription({
                       :
                     </span>
                     <span className="font-medium">
-                      {cycle.pricing_scheme.fixed_price.value}{" "}
-                      {cycle.pricing_scheme.fixed_price.currency_code}
+                      {cycle.pricing_scheme?.fixed_price.value}{" "}
+                      {cycle.pricing_scheme?.fixed_price.currency_code}
                       {cycle.frequency &&
-                        ` / ${cycle.frequency.interval_count} ${cycle.frequency.interval_unit.toLowerCase()}`}
+                        ` / ${cycle.frequency.interval_count || 1} ${cycle.frequency.interval_unit.toLowerCase()}`}
                     </span>
                   </div>
-                  {cycle.total_cycles > 0 && (
+                  {cycle.total_cycles && cycle.total_cycles > 0 && (
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Duration:</span>
                       <span>

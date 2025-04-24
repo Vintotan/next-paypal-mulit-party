@@ -298,9 +298,8 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <Alert className="bg-green-600/30 border-green-600">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">Success</AlertTitle>
+          <Alert className="bg-green-600/10 border-green-600">
+            <AlertTitle className="text-green-700">Success</AlertTitle>
             <AlertDescription className="text-green-700">
               PayPal account successfully connected!
             </AlertDescription>
@@ -372,11 +371,11 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <Alert className="bg-blue-700/30 border-blue-700">
-          <AlertTitle className="text-blue-700 font-semibold">
+        <Alert className="bg-blue-700/10 border-blue-700">
+          <AlertTitle className="text-blue-700">
             PayPal Business required
           </AlertTitle>
-          <AlertDescription className="text-blue-700">
+          <AlertDescription className={cn("text-blue-700")}>
             A PayPal business account is required to enable PayPal Checkout.
             Personal accounts are not supported.
             <Link
@@ -405,8 +404,7 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
         )}
 
         {!organization && orgIsLoaded && (
-          <Alert className="bg-blue-700/30 border-blue-700">
-            <InfoIcon className="h-4 w-4 text-blue-700" />
+          <Alert className="bg-blue-700/10 border-blue-700">
             <AlertTitle className="text-blue-700">
               Organization Required
             </AlertTitle>

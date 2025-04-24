@@ -52,14 +52,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Capturing PayPal order:", { orgId, orderId });
-
     const result = (await captureOrder({
       orgId,
       orderId,
     })) as PayPalCaptureResult;
-
-    console.log("Order captured successfully:", result.id);
 
     // Record the transaction in the database
     try {
@@ -108,8 +104,6 @@ export async function POST(request: NextRequest) {
             buyerEmail,
             paymentDetails: result,
           });
-
-          console.log("Transaction recorded successfully");
         }
       }
     } catch (dbError) {

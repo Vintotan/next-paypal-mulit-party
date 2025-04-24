@@ -106,7 +106,6 @@ async function formatSubscription(sub: any, accessToken: string) {
 }
 
 export async function GET(request: NextRequest) {
-  console.log("Subscription Transactions API: Request received");
   try {
     // Get orgId from query params
     const { searchParams } = new URL(request.url);
@@ -114,10 +113,6 @@ export async function GET(request: NextRequest) {
 
     // Check if specific subscription ID is provided in the query for testing
     const specificSubscriptionId = searchParams.get("subscriptionId");
-
-    console.log(
-      `Subscription Transactions API: Processing request for orgId: ${orgId}, specificSubscriptionId: ${specificSubscriptionId || "none"}`,
-    );
 
     if (!orgId) {
       return NextResponse.json(
@@ -134,9 +129,6 @@ export async function GET(request: NextRequest) {
       .limit(1);
 
     if (!accounts.length) {
-      console.log(
-        `Subscription Transactions API: No PayPal account found for orgId: ${orgId}`,
-      );
       return NextResponse.json(
         { error: "No PayPal account found for this organization" },
         { status: 404 },
@@ -147,9 +139,6 @@ export async function GET(request: NextRequest) {
 
     // If the account is not active, return an empty array
     if (account.status !== "active") {
-      console.log(
-        `Subscription Transactions API: Account not active for orgId: ${orgId}`,
-      );
       return NextResponse.json([]);
     }
 
@@ -158,10 +147,7 @@ export async function GET(request: NextRequest) {
     try {
       accessToken = await getPayPalAccessToken();
     } catch (error) {
-      console.error(
-        "Subscription Transactions API: Error getting PayPal access token:",
-        error,
-      );
+      console.error("Error getting PayPal access token:", error);
       return NextResponse.json(
         { error: "Failed to authenticate with PayPal" },
         { status: 500 },
@@ -172,9 +158,6 @@ export async function GET(request: NextRequest) {
 
     // First check if we have a specific subscription ID to fetch
     if (specificSubscriptionId) {
-      console.log(
-        `Subscription Transactions API: Fetching specific subscription ID: ${specificSubscriptionId}`,
-      );
       const subscription = await getSubscriptionById(
         specificSubscriptionId,
         accessToken,
@@ -187,9 +170,6 @@ export async function GET(request: NextRequest) {
     // If no specific subscription ID or it wasn't found, check the database
     if (subscriptionsToProcess.length === 0) {
       try {
-        console.log(
-          "Subscription Transactions API: Checking database for stored subscriptions",
-        );
         const storedSubscriptions = await db
           .select()
           .from(subscriptionsTable)
@@ -197,10 +177,6 @@ export async function GET(request: NextRequest) {
           .orderBy(desc(subscriptionsTable.createdAt));
 
         if (storedSubscriptions.length > 0) {
-          console.log(
-            `Subscription Transactions API: Found ${storedSubscriptions.length} subscriptions in database`,
-          );
-
           // Fetch current details for each stored subscription
           for (const storedSub of storedSubscriptions) {
             const subscription = await getSubscriptionById(
@@ -211,34 +187,17 @@ export async function GET(request: NextRequest) {
               subscriptionsToProcess.push(subscription);
             }
           }
-
-          console.log(
-            `Subscription Transactions API: Successfully fetched ${subscriptionsToProcess.length} subscriptions from stored IDs`,
-          );
-        } else {
-          console.log(
-            "Subscription Transactions API: No subscriptions found in database",
-          );
         }
       } catch (error) {
-        console.error(
-          "Subscription Transactions API: Error checking database for subscriptions:",
-          error,
-        );
+        console.error("Error processing subscriptions:", error);
       }
     }
 
     // If we still don't have any subscriptions, try to get them directly from PayPal
     if (subscriptionsToProcess.length === 0) {
-      console.log(
-        "Subscription Transactions API: Fetching subscriptions directly from PayPal",
-      );
       const paypalSubscriptions = await getAllSubscriptions();
 
       if (paypalSubscriptions.length > 0) {
-        console.log(
-          `Subscription Transactions API: Found ${paypalSubscriptions.length} subscriptions from PayPal`,
-        );
         subscriptionsToProcess = paypalSubscriptions;
 
         // Store these subscriptions in the database for future use
@@ -302,36 +261,22 @@ export async function GET(request: NextRequest) {
                 buyerEmail: subscriber?.email_address || null,
                 metadata: sub,
               });
-
-              console.log(
-                `Subscription Transactions API: Saved subscription ${subscriptionId} to database`,
-              );
             }
           } catch (error) {
             console.error(
-              `Subscription Transactions API: Error storing subscription ${sub.id} in database:`,
+              `Error storing subscription ${sub.id} in database:`,
               error,
             );
           }
         }
-      } else {
-        console.log(
-          "Subscription Transactions API: No subscriptions found directly from PayPal",
-        );
       }
     }
 
     // As a last resort, use fallback hardcoded subscription IDs
     if (subscriptionsToProcess.length === 0) {
-      console.log(
-        "Subscription Transactions API: Using fallback subscription IDs",
-      );
       const fallbackSubscriptions = await getFallbackSubscriptions();
 
       if (fallbackSubscriptions.length > 0) {
-        console.log(
-          `Subscription Transactions API: Found ${fallbackSubscriptions.length} subscriptions from fallback IDs`,
-        );
         subscriptionsToProcess = fallbackSubscriptions;
 
         // Store these in the database for future use
@@ -395,14 +340,10 @@ export async function GET(request: NextRequest) {
                 buyerEmail: subscriber?.email_address || null,
                 metadata: sub,
               });
-
-              console.log(
-                `Subscription Transactions API: Saved fallback subscription ${subscriptionId} to database`,
-              );
             }
           } catch (error) {
             console.error(
-              `Subscription Transactions API: Error storing fallback subscription ${sub.id} in database:`,
+              `Error storing fallback subscription ${sub.id} in database:`,
               error,
             );
           }
@@ -412,31 +353,19 @@ export async function GET(request: NextRequest) {
 
     // If we still have no subscriptions, return empty array
     if (subscriptionsToProcess.length === 0) {
-      console.log(
-        "Subscription Transactions API: No subscriptions found after all attempts",
-      );
       return NextResponse.json([]);
     }
 
-    // Process the subscription data into a format similar to transactions
-    console.log(
-      `Subscription Transactions API: Processing ${subscriptionsToProcess.length} subscriptions`,
-    );
-    const formattedSubscriptions = await Promise.all(
+    // Format the subscriptions as transactions
+    const formattedTransactions = await Promise.all(
       subscriptionsToProcess.map((sub) => formatSubscription(sub, accessToken)),
     );
 
-    console.log(
-      `Subscription Transactions API: Returning ${formattedSubscriptions.length} subscription transactions`,
-    );
-    return NextResponse.json(formattedSubscriptions.filter(Boolean));
+    return NextResponse.json(formattedTransactions);
   } catch (error) {
-    console.error(
-      "Subscription Transactions API: Error fetching subscription transactions:",
-      error,
-    );
+    console.error("Error fetching subscription transactions:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Failed to fetch subscription transactions" },
       { status: 500 },
     );
   }

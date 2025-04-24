@@ -65,7 +65,6 @@ export default function VerifyEmailAddressPage() {
         router.push("/dashboard");
       } else {
         // Handle incomplete verification
-        console.log("Verification status:", result.status);
         setError(
           "Additional verification steps required. Please continue with the flow.",
         );

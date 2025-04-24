@@ -163,7 +163,6 @@ export default function TestPayPalPage() {
   };
 
   const handleSuccess = (details: any) => {
-    console.log("Payment successful!", details);
     // You would typically redirect or update UI here
   };
 
