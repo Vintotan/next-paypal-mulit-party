@@ -298,7 +298,7 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <Alert className="bg-green-50 border-green-200">
+          <Alert className="bg-green-600/30 border-green-600">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <AlertTitle className="text-green-800">Success</AlertTitle>
             <AlertDescription className="text-green-700">
@@ -372,7 +372,7 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <Alert className="bg-blue-50 border-blue-200">
+        <Alert className="bg-blue-700/30 border-blue-700">
           <AlertTitle className="text-blue-700 font-semibold">
             PayPal Business required
           </AlertTitle>
@@ -405,7 +405,7 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
         )}
 
         {!organization && orgIsLoaded && (
-          <Alert className="bg-blue-50 border-blue-200">
+          <Alert className="bg-blue-700/30 border-blue-700">
             <InfoIcon className="h-4 w-4 text-blue-700" />
             <AlertTitle className="text-blue-700">
               Organization Required
@@ -494,14 +494,14 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
 
           <TabsContent value="direct" className="space-y-4 pt-4">
             <div className="text-center space-y-4">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-foreground">
                 Connect your PayPal account directly using PayPal&apos;s
                 onboarding flow. You&apos;ll be redirected to PayPal to complete
                 the setup process.
               </p>
 
               <div className="space-y-2">
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   This will create a secure connection between your PayPal
                   Business account and this platform, allowing us to process
                   payments on your behalf.

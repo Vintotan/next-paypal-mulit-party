@@ -227,11 +227,16 @@ export function PaymentHistory() {
   const renderStatusBadge = (status: string) => {
     let variant: "default" | "secondary" | "destructive" | "outline" | null =
       null;
+    let displayText = status;
 
-    switch (status.toLowerCase()) {
+    switch (status.toUpperCase()) {
       case "completed":
+        variant = "default"; // green
+        displayText = "paid";
+        break;
       case "active":
         variant = "default"; // green
+        displayText = "subscribed";
         break;
       case "created":
       case "pending":
@@ -249,7 +254,7 @@ export function PaymentHistory() {
         variant = "outline"; // gray
     }
 
-    return <Badge variant={variant}>{status}</Badge>;
+    return <Badge variant={variant}>{displayText}</Badge>;
   };
 
   // Render payment type badge
@@ -257,7 +262,7 @@ export function PaymentHistory() {
     if (paymentType === "SUBSCRIPTION") {
       return <Badge variant="secondary">Subscription</Badge>;
     }
-    return <Badge variant="outline">One-time</Badge>;
+    return <Badge variant="outline">Single Payment</Badge>;
   };
 
   if (isAccountActive === false) {

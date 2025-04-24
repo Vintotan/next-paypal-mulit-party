@@ -210,7 +210,7 @@ export function PayPalSubscription({
         )}
 
         {success && (
-          <Alert className="bg-green-50 border-green-200">
+          <Alert className="bg-green-600/30 border-green-600">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <AlertTitle className="text-green-800">
               Subscription Successful

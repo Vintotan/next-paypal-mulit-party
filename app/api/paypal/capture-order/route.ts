@@ -8,6 +8,14 @@ import { eq } from "drizzle-orm";
 type PayPalCaptureResult = {
   id: string;
   status: string;
+  payment_source?: {
+    paypal?: {
+      email_address?: string;
+    };
+  };
+  payer?: {
+    email_address?: string;
+  };
   purchase_units?: Array<{
     payments?: {
       captures?: Array<{
@@ -80,8 +88,14 @@ export async function POST(request: NextRequest) {
             purchaseUnit?.payment_instruction?.platform_fees?.[0]?.amount
               ?.value || "0.00";
 
-          // Get buyer email if available
-          const buyerEmail = capture.payer?.email_address;
+          // Get buyer email from multiple possible locations
+          const buyerEmail =
+            // First check payer.email_address (top level)
+            result.payer?.email_address ||
+            // Then check payment_source.paypal.email_address
+            result.payment_source?.paypal?.email_address ||
+            // Finally check the capture.payer if available (legacy location)
+            capture.payer?.email_address;
 
           // Insert transaction record
           await db.insert(transactions).values({
