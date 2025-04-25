@@ -246,11 +246,11 @@ export function PayPalSubscription({
         )}
 
         {success && (
-          <Alert className="bg-green-600/10 border-green-600">
-            <AlertTitle className="text-green-700">
+          <Alert className="bg-green-500/10 border-green-500">
+            <AlertTitle className="text-green-500">
               Subscription Successful
             </AlertTitle>
-            <AlertDescription className="text-green-700">
+            <AlertDescription className="text-green-500">
               Your subscription has been activated successfully!
             </AlertDescription>
           </Alert>

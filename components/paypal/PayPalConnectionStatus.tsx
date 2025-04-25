@@ -76,28 +76,28 @@ export function PayPalConnectionStatus() {
       case "connected":
         return {
           label: "PayPal Connected",
-          className: "bg-green-100 text-green-800 border-green-200",
-          icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />,
+          className: "bg-green-500/10 text-green-500 border-green-500",
+          icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />,
         };
       case "disconnected":
         return {
           label: "PayPal Not Connected",
-          className: "bg-red-100 text-red-800 border-red-200",
-          icon: <AlertCircle className="h-3.5 w-3.5 text-red-600" />,
+          className: "bg-red-500/10 text-red-500 border-red-500",
+          icon: <AlertCircle className="h-3.5 w-3.5 text-red-500" />,
         };
       case "loading":
         return {
           label: "Checking Connection...",
-          className: "bg-blue-100 text-blue-800 border-blue-200",
+          className: "bg-blue-500/10 text-blue-500 border-blue-500",
           icon: (
-            <LoaderCircle className="h-3.5 w-3.5 text-blue-600 animate-spin" />
+            <LoaderCircle className="h-3.5 w-3.5 text-blue-500 animate-spin" />
           ),
         };
       default:
         return {
           label: "Select Organization",
-          className: "bg-gray-100 text-gray-800 border-gray-200",
-          icon: <Clock className="h-3.5 w-3.5 text-gray-600" />,
+          className: "bg-gray-500/10 text-gray-500 border-gray-500",
+          icon: <Clock className="h-3.5 w-3.5 text-gray-500" />,
         };
     }
   };
@@ -107,7 +107,7 @@ export function PayPalConnectionStatus() {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border",
+        "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border",
         className,
       )}
     >

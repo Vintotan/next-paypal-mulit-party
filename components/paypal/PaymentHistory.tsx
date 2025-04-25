@@ -19,6 +19,14 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical } from "lucide-react";
 
 type Transaction = {
   id: string;
@@ -35,6 +43,7 @@ type Transaction = {
   planName?: string;
   planPrice?: string;
   planInterval?: string;
+  subscriptionId?: string;
 };
 
 type PlanDetails = {
@@ -63,6 +72,9 @@ export function PaymentHistory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAccountActive, setIsAccountActive] = useState<boolean | null>(null);
+  const [cancellingSubscription, setCancellingSubscription] = useState<
+    string | null
+  >(null);
 
   // Check if the account is active
   useEffect(() => {
@@ -159,6 +171,9 @@ export function PaymentHistory() {
               // Pass through all subscription data, including planPrice and planInterval
               let planName = sub.description || "Default Plan";
 
+              // Ensure we have the subscriptionId for each subscription transaction
+              const subscriptionId = sub.subscriptionId || sub.orderId;
+
               // If the subscription doesn't have price/interval but has planId, attempt to fetch it
               if (sub.planId && (!sub.planPrice || !sub.planInterval)) {
                 try {
@@ -206,6 +221,7 @@ export function PaymentHistory() {
 
               return {
                 ...sub,
+                subscriptionId,
                 planName,
                 paymentType: "SUBSCRIPTION" as const,
               };
@@ -263,13 +279,13 @@ export function PaymentHistory() {
 
   // Render status badge with color
   const renderStatusBadge = (status: string) => {
-    let variant: "default" | "secondary" | "destructive" | "outline" =
+    let variant: "default" | "secondary" | "destructive" | "outline" | "success" =
       "outline";
     let displayText = status;
 
     switch (status.toUpperCase()) {
       case "COMPLETED":
-        variant = "default"; // green
+        variant = "success"; // green
         displayText = "Paid";
         break;
       case "ACTIVE":
@@ -285,6 +301,7 @@ export function PaymentHistory() {
       case "VOIDED":
       case "FAILED":
       case "CANCELLED":
+        displayText = "Unsubscribed";
       case "SUSPENDED":
         variant = "destructive"; // red
         break;
@@ -299,6 +316,51 @@ export function PaymentHistory() {
       return <Badge variant="secondary">Subscription</Badge>;
     }
     return <Badge variant="outline">Single Payment</Badge>;
+  };
+
+  // Handle subscription cancellation
+  const handleCancelSubscription = async (subscriptionId: string) => {
+    if (!subscriptionId || !organization?.id) return;
+
+    try {
+      setCancellingSubscription(subscriptionId);
+
+      const baseUrl = window.location.origin;
+      const response = await fetch(
+        `${baseUrl}/api/paypal/cancel-subscription`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ subscriptionId }),
+        },
+      );
+
+      const responseData = await response.json();
+
+      if (response.ok) {
+        // Update the status of the cancelled subscription in the UI
+        setTransactions((prevTransactions) =>
+          prevTransactions.map((tx) =>
+            tx.subscriptionId === subscriptionId
+              ? { ...tx, status: "CANCELLED" }
+              : tx,
+          ),
+        );
+      } else {
+        console.error("Failed to cancel subscription:", responseData);
+        setError(
+          responseData.error ||
+            "Failed to cancel subscription. Please try again.",
+        );
+      }
+    } catch (err) {
+      console.error("Error cancelling subscription:", err);
+      setError("An error occurred while cancelling the subscription.");
+    } finally {
+      setCancellingSubscription(null);
+    }
   };
 
   if (isAccountActive === false) {
@@ -369,6 +431,7 @@ export function PaymentHistory() {
                   <TableHead>Fee</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Buyer</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -406,6 +469,39 @@ export function PaymentHistory() {
                     </TableCell>
                     <TableCell>{renderStatusBadge(tx.status)}</TableCell>
                     <TableCell>{tx.buyerEmail || "-"}</TableCell>
+                    <TableCell>
+                      {tx.paymentType === "SUBSCRIPTION" &&
+                        tx.subscriptionId && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">Open menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {tx.status.toUpperCase() === "ACTIVE" && (
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  disabled={
+                                    cancellingSubscription === tx.subscriptionId
+                                  }
+                                  onClick={() =>
+                                    handleCancelSubscription(tx.subscriptionId!)
+                                  }
+                                >
+                                  {cancellingSubscription ===
+                                  tx.subscriptionId ? (
+                                    <Spinner className="size-4 mr-2" />
+                                  ) : null}
+                                  Unsubscribe
+                                </DropdownMenuItem>
+                              )}
+                              {/* Add more options here as needed */}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

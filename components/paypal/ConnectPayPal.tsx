@@ -298,9 +298,9 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <Alert className="bg-green-600/10 border-green-600">
-            <AlertTitle className="text-green-700">Success</AlertTitle>
-            <AlertDescription className="text-green-700">
+          <Alert className="bg-green-500/10 border-green-500">
+            <AlertTitle className="text-green-500">Success</AlertTitle>
+            <AlertDescription className="text-green-500">
               PayPal account successfully connected!
             </AlertDescription>
           </Alert>
@@ -371,11 +371,11 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <Alert className="bg-blue-700/10 border-blue-700">
-          <AlertTitle className="text-blue-700">
+        <Alert className="bg-blue-500/10 border-blue-500">
+          <AlertTitle className="text-blue-500">
             PayPal Business required
           </AlertTitle>
-          <AlertDescription className={cn("text-blue-700")}>
+          <AlertDescription className={cn("text-blue-500")}>
             A PayPal business account is required to enable PayPal Checkout.
             Personal accounts are not supported.
             <Link
@@ -386,7 +386,7 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
                   variant: "default",
                   size: "sm",
                 }),
-                "text-xs bg-blue-700 text-white mt-2 w-fit mx-auto",
+                "text-xs bg-blue-500 text-white mt-2 w-fit mx-auto",
               )}
             >
               Create PayPal Business
@@ -404,11 +404,11 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
         )}
 
         {!organization && orgIsLoaded && (
-          <Alert className="bg-blue-700/10 border-blue-700">
-            <AlertTitle className="text-blue-700">
+          <Alert className="bg-blue-500/10 border-blue-500">
+            <AlertTitle className="text-blue-500">
               Organization Required
             </AlertTitle>
-            <AlertDescription className="text-blue-700">
+            <AlertDescription className="text-blue-500">
               Please select an organization using the selector above before
               connecting a PayPal account.
             </AlertDescription>
@@ -436,7 +436,7 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
                 <Link
                   href="https://www.paypal.com/businessmanage/account/aboutBusiness"
                   target="_blank"
-                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
+                  className="text-xs text-blue-500 hover:text-blue-800 flex items-center"
                 >
                   Open PayPal Merchant ID{" "}
                   <ExternalLink className="ml-1 h-3 w-3" />

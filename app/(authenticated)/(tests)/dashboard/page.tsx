@@ -154,9 +154,9 @@ function DashboardContent() {
             {organization && (
               <Badge
                 variant="default"
-                className="bg-blue-50 border-blue-200 text-blue-700 text-xs font-medium"
+                className="bg-blue-500/10 border-blue-500 text-blue-500 text-xs font-medium px-2 py-1"
               >
-                <CheckCircle2 className="h-3.5 w-3.5 text-blue-700 mr-1" />
+                <CheckCircle2 className="h-3.5 w-3.5 text-blue-500 mr-1" />
                 Clerk Organization Connected
               </Badge>
             )}

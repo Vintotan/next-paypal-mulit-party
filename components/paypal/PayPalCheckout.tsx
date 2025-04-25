@@ -201,11 +201,11 @@ export function PayPalCheckout({
         )}
 
         {success && (
-          <Alert className="bg-green-600/10 border-green-600">
-            <AlertTitle className="text-green-700">
+          <Alert className="bg-green-500/10 border-green-500">
+            <AlertTitle className="text-green-500">
               Payment Successful
             </AlertTitle>
-            <AlertDescription className="text-green-700">
+            <AlertDescription className="text-green-500">
               Your payment has been processed successfully!
             </AlertDescription>
           </Alert>

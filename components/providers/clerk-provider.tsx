@@ -22,13 +22,8 @@ export function ClerkProviderWrapper({
   // Add global event listener for Clerk errors
   useEffect(() => {
     // Output debug information on mount
-    console.log(
-      "[ClerkProviderWrapper] Initializing with publishableKey:",
-      !!publishableKey,
-    );
 
     const handleClerkError = (event: ErrorEvent) => {
-      console.error("Clerk error:", event.error);
       if (event.error && event.error.toString().includes("Clerk")) {
         setError(`Clerk error: ${event.error.toString()}`);
         setLoadState("error");
@@ -42,13 +37,11 @@ export function ClerkProviderWrapper({
   // Log when components render
   useEffect(() => {
     if (loadState === "loaded") {
-      console.log("[ClerkProviderWrapper] Clerk loaded successfully");
     }
   }, [loadState]);
 
   // Early return for missing publishable key, but after all hooks are called
   if (!publishableKey) {
-    console.error("Missing Clerk publishable key");
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded">
         <p className="text-red-700">Error: Missing Clerk publishable key</p>
