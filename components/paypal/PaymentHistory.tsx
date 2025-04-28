@@ -279,8 +279,12 @@ export function PaymentHistory() {
 
   // Render status badge with color
   const renderStatusBadge = (status: string) => {
-    let variant: "default" | "secondary" | "destructive" | "outline" | "success" =
-      "outline";
+    let variant:
+      | "default"
+      | "secondary"
+      | "destructive"
+      | "outline"
+      | "success" = "outline";
     let displayText = status;
 
     switch (status.toUpperCase()) {

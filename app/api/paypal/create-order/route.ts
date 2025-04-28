@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createOrderWithPlatformFee } from "@/lib/paypal/multiparty";
 
-// Define a type for the PayPal order result
 type PayPalOrderResult = {
   id: string;
   status: string;
@@ -10,7 +9,6 @@ type PayPalOrderResult = {
     rel: string;
     method: string;
   }>;
-  // Add other fields as needed
 };
 
 export async function POST(request: NextRequest) {
@@ -37,21 +35,19 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error creating PayPal order:", error);
 
-    // Extract more detailed error information
     let errorMessage = "Failed to create PayPal order";
     let errorDetails = null;
 
     if (error instanceof Error) {
       errorMessage = error.message;
 
-      // Try to parse PayPal API error details if available
       try {
         const errorJson = JSON.parse(error.message);
         if (errorJson.details) {
           errorDetails = errorJson.details;
         }
       } catch (e) {
-        // Not a JSON error message, use as is
+        // Not a JSON error message
       }
     }
 

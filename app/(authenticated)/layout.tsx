@@ -9,11 +9,9 @@ export default function AuthenticatedLayout({
 }) {
   const { userId } = auth();
 
-  // If the user is not authenticated, redirect to sign-in
   if (!userId) {
     redirect("/sign-in");
   }
 
-  // If authenticated, render the children
   return <>{children}</>;
 }

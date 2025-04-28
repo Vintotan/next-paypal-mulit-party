@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 
-// This is a test endpoint to check Clerk keys - DO NOT USE IN PRODUCTION
 export async function GET() {
-  // Mask the keys for security
   const maskKey = (key: string | undefined) => {
     if (!key) return null;
     if (key.length <= 10) return key.substring(0, 3) + "***";
     return key.substring(0, 6) + "..." + key.substring(key.length - 4);
   };
 
-  // Check required environment variables
   const result = {
     clerk: {
       publishableKey: {

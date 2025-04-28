@@ -49,7 +49,6 @@ export function PayPalAccountDetails() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [disconnectError, setDisconnectError] = useState<string | null>(null);
 
-  // Extract fetch account details as a reusable function
   const fetchAccountDetails = useCallback(async () => {
     if (!organization?.id) return;
 
@@ -68,7 +67,6 @@ export function PayPalAccountDetails() {
 
       if (!response.ok) {
         if (response.status === 404) {
-          // No account found is not an error, just set account to null
           setAccount(null);
           return;
         }
@@ -93,12 +91,10 @@ export function PayPalAccountDetails() {
     }
   }, [organization?.id]);
 
-  // Fetch account details when the component mounts or org changes
   useEffect(() => {
     fetchAccountDetails();
   }, [fetchAccountDetails]);
 
-  // Handle disconnect PayPal account
   const handleDisconnect = async () => {
     if (!organization) {
       setDisconnectError("No organization selected");
@@ -109,7 +105,6 @@ export function PayPalAccountDetails() {
     setDisconnectError(null);
 
     try {
-      // Call the DELETE endpoint
       const response = await fetch(
         `/api/paypal/account-details?orgId=${organization.id}`,
         {
@@ -125,11 +120,9 @@ export function PayPalAccountDetails() {
         throw new Error(errorData.error || "Failed to disconnect account");
       }
 
-      // Close the dialog and clear the account data
       setDisconnectDialogOpen(false);
       setAccount(null);
 
-      // Force a re-fetch after a short delay to ensure DB updates are reflected
       setTimeout(() => {
         fetchAccountDetails();
       }, 500);
@@ -145,7 +138,6 @@ export function PayPalAccountDetails() {
     }
   };
 
-  // Format date
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);

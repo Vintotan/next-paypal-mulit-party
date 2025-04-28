@@ -36,8 +36,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-// Replace this with your actual PayPal Partner ID
-// For testing, you can obtain this from your PayPal Developer account
 const PAYPAL_PARTNER_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
 
 type ConnectPayPalProps = {
@@ -57,7 +55,6 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
   const [isCheckingAccount, setIsCheckingAccount] = useState(false);
   const [activeTab, setActiveTab] = useState("manual");
 
-  // Check if there's a connected account when component mounts
   const checkConnectedAccount = useCallback(async () => {
     if (!organization) return;
 
@@ -80,16 +77,13 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
     }
   }, [organization]);
 
-  // Check for connected account when organization changes
   useEffect(() => {
     if (organization) {
       checkConnectedAccount();
     }
   }, [organization, checkConnectedAccount]);
 
-  // Check for PayPal onboarding return URL parameters
   useEffect(() => {
-    // Only run in browser environment
     if (typeof window === "undefined") return;
 
     const url = new URL(window.location.href);
@@ -97,16 +91,13 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
     const permissionsGranted = url.searchParams.get("permissionsGranted");
     const trackingId = url.searchParams.get("merchantId");
 
-    // If we have PayPal return parameters
     if (merchantIdInPayPal && permissionsGranted === "true" && organization) {
       (async () => {
         setLoading(true);
         try {
-          // Connect the PayPal account with the returned merchant ID
           await trpc.paypal.connectAccount.mutate({
             orgId: organization.id,
             merchantId: merchantIdInPayPal,
-            // You could also store other returned parameters if needed
           });
 
           setSuccess(true);
@@ -115,7 +106,6 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
             onSuccess();
           }
 
-          // Clear URL parameters to avoid processing again on refresh
           window.history.replaceState(
             {},
             document.title,
@@ -134,7 +124,6 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
     }
   }, [organization, onSuccess]);
 
-  // Automatically show an informative message if no organization is selected
   useEffect(() => {
     if (orgIsLoaded && !organization && !error) {
       setError(
@@ -198,36 +187,23 @@ export function ConnectPayPal({ onSuccess }: ConnectPayPalProps) {
     setError(null);
 
     try {
-      // Use PayPal's URL onboarding flow as per the documentation
-      // Use the organization ID as the tracking ID
       const trackingId = organization.id;
 
-      // Create the PayPal onboarding URL with proper parameters
-      // This follows the URL onboarding format in the PayPal documentation
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
       const returnUrl = `${baseUrl}/api/paypal/onboard`;
 
-      // Construct URL according to PayPal's URL onboarding spec
       const paypalUrl = new URL(
         process.env.NEXT_PUBLIC_PAYPAL_CONNECT_URL || "",
       );
 
-      // Add query parameters
       paypalUrl.searchParams.append("partnerId", PAYPAL_PARTNER_ID);
-      paypalUrl.searchParams.append("merchantId", trackingId); // Use org ID as tracking ID
-      paypalUrl.searchParams.append("product", "ppcp"); // PayPal Commerce Platform
-      paypalUrl.searchParams.append("integrationType", "TO"); // Third Party OAuth
+      paypalUrl.searchParams.append("merchantId", trackingId);
+      paypalUrl.searchParams.append("product", "ppcp");
+      paypalUrl.searchParams.append("integrationType", "TO");
       paypalUrl.searchParams.append("features", "PAYMENT,REFUND");
       paypalUrl.searchParams.append("returnToPartnerUrl", returnUrl);
 
-      // For demo purposes we can also use the static token you provided
-      // paypalUrl.searchParams.append("referralToken", "YzliYjA1MTUtNmI5Yy00NTQ4LWIyMGYtY2RhOTBiMjJkYmU4d2U1YlRZaFkreGlmZW9lVHdnc01PMUVtRmlNeUVGL0o3d2xXa015Ky9JYz12Mg==");
-
-      // Redirect to PayPal URL onboarding flow
       window.location.href = paypalUrl.toString();
-
-      // Note: The user will be redirected to PayPal. When they return via the return URL,
-      // our API route will handle the connection
     } catch (err) {
       setError(
         err instanceof Error
