@@ -2,6 +2,8 @@ import { createPayPalClient } from "./client";
 import { db } from "@/db";
 import { paypalAccounts } from "@/db/schema";
 import checkoutNodeSdk from "@paypal/checkout-server-sdk";
+import { eq } from "drizzle-orm";
+import { getPayPalAccessToken } from "@/lib/paypal";
 
 // Get a merchant-specific PayPal client based on organization ID
 export async function getMerchantPayPalClient(orgId: string) {
@@ -114,24 +116,70 @@ export async function setupMerchantWebhook({
   notificationUrl: string;
 }) {
   const client = await getMerchantPayPalClient(orgId);
+  const accessToken = await getPayPalAccessToken();
 
-  // Create webhook for this merchant
+  if (!accessToken) {
+    throw new Error("Failed to get PayPal access token for webhook setup");
+  }
+
+  // Create webhook with supported event types
   const webhookRequest = {
     url: notificationUrl,
     event_types: [
       { name: "PAYMENT.CAPTURE.COMPLETED" },
       { name: "PAYMENT.CAPTURE.DENIED" },
       { name: "PAYMENT.CAPTURE.REFUNDED" },
+      { name: "CHECKOUT.ORDER.COMPLETED" },
+      { name: "CHECKOUT.ORDER.APPROVED" },
+      { name: "BILLING.SUBSCRIPTION.CREATED" },
+      { name: "BILLING.SUBSCRIPTION.ACTIVATED" },
+      { name: "BILLING.SUBSCRIPTION.CANCELLED" },
     ],
   };
 
-  // This is a placeholder for actual webhook creation
-  // In a real implementation, you would use the appropriate PayPal API
-  console.log("Creating webhook for merchant", orgId, webhookRequest);
+  try {
+    // Create the webhook via PayPal API
+    const response = await fetch(
+      `${process.env.PAYPAL_API_URL}/v1/notifications/webhooks`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(webhookRequest),
+      },
+    );
 
-  // Return a mock response for now
-  return {
-    id: "webhook-id-" + Date.now(),
-    url: notificationUrl,
-  };
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("PayPal webhook creation error:", errorData);
+      throw new Error(
+        `Failed to create PayPal webhook: ${errorData.message || "Unknown error"}`,
+      );
+    }
+
+    const webhookData = await response.json();
+
+    // Update the merchant account with the webhook ID
+    if (webhookData.id) {
+      const accounts = await db.select().from(paypalAccounts);
+      const account = accounts.find((account) => account.orgId === orgId);
+
+      if (account) {
+        await db
+          .update(paypalAccounts)
+          .set({
+            webhookId: webhookData.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(paypalAccounts.id, account.id));
+      }
+    }
+
+    return webhookData;
+  } catch (err) {
+    console.error("Error creating PayPal webhook:", err);
+    throw err;
+  }
 }

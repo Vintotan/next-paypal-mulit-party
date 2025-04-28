@@ -13,12 +13,9 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ClerkStatus } from "@/components/debug/ClerkStatus";
 import { cn } from "@/lib/utils";
 
 export function UserMenu() {
-  const [showClerkStatus, setShowClerkStatus] = React.useState(false);
-
   return (
     <>
       <DropdownMenu>
@@ -41,14 +38,6 @@ export function UserMenu() {
             >
               Dashboard
             </Link>
-            <Button
-              onClick={() => setShowClerkStatus((prev) => !prev)}
-              variant="secondary"
-              size="sm"
-              className="w-full"
-            >
-              {showClerkStatus ? "Hide Clerk Status" : "Show Clerk Status"}
-            </Button>
 
             <div className="flex items-center justify-between">
               <span className="text-sm">Theme</span>
@@ -74,12 +63,6 @@ export function UserMenu() {
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {showClerkStatus && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <ClerkStatus />
-        </div>
-      )}
     </>
   );
 }

@@ -4,6 +4,8 @@ import paypalClient from "@/lib/paypal/client";
 import { db } from "@/db";
 import { paypalAccounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import crypto from "crypto";
+import { setupMerchantWebhook } from "@/lib/paypal/multiparty";
 
 export async function POST(req: NextRequest) {
   const request = new paypalClient.orders.OrdersCreateRequest();
@@ -75,9 +77,30 @@ export async function GET(request: Request) {
       `${url.origin}?merchantIdInPayPal=${merchantIdInPayPal}&merchantId=${trackingId}&permissionsGranted=true`,
     );
   } catch (error) {
-    console.error("Error processing PayPal onboarding return:", error);
+    console.error("Error in PayPal onboarding:", error);
     return NextResponse.redirect(
       `${url.origin}?error=Failed to process PayPal onboarding`,
     );
+  } finally {
+    // Try to create webhook for the newly onboarded account
+    // We do this in a finally block to ensure the user is redirected
+    // even if webhook creation fails
+    try {
+      // Set up webhook for the merchant
+      const webhookUrl = `${url.origin}/api/paypal/webhook`;
+
+      // Only proceed if we have a valid trackingId
+      if (trackingId) {
+        const webhook = await setupMerchantWebhook({
+          orgId: trackingId,
+          notificationUrl: webhookUrl,
+        });
+
+        console.log("Created webhook for merchant:", trackingId, webhook);
+      }
+    } catch (webhookError) {
+      // Just log the error, don't interrupt the onboarding flow
+      console.error("Failed to set up webhook for merchant:", webhookError);
+    }
   }
 }

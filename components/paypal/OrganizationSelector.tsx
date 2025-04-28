@@ -14,12 +14,10 @@ import { Button } from "@/components/ui/button";
 type Organization = {
   id: string;
   name: string;
-  // Add other properties as needed
 };
 
 type Membership = {
   organization: Organization;
-  // Add other properties as needed
 };
 
 export function OrganizationSelector() {

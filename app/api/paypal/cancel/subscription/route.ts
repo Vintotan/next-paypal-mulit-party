@@ -5,9 +5,6 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const orgId = searchParams.get("orgId");
 
-    // Log cancelled subscription
-    console.log(`Subscription cancelled for organization ${orgId}`);
-
     // Get the base URL from environment or request
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 

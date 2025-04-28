@@ -12,6 +12,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { Spinner } from "@/components/ui/spinner";
 
 type PayPalCheckoutProps = {
   amount: string;
@@ -20,6 +21,19 @@ type PayPalCheckoutProps = {
   description?: string;
   onSuccess?: (details: any) => void;
   onError?: (error: any) => void;
+};
+
+type ConnectedAccount = {
+  id: string;
+  status: string;
+  merchantId: string;
+  email?: string;
+  businessName?: string;
+};
+
+type PayPalOrderResponse = {
+  id: string;
+  status: string;
 };
 
 export function PayPalCheckout({
@@ -35,7 +49,8 @@ export function PayPalCheckout({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
-  const [connectedAccount, setConnectedAccount] = useState<any>(null);
+  const [connectedAccount, setConnectedAccount] =
+    useState<ConnectedAccount | null>(null);
   const [accountLoading, setAccountLoading] = useState(false);
 
   // Check if organization has a connected PayPal account
@@ -46,13 +61,25 @@ export function PayPalCheckout({
     try {
       const response = await fetch(
         `/api/paypal/connected-account?orgId=${organization.id}`,
+        {
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        },
       );
-      if (response.ok) {
-        const data = await response.json();
-        setConnectedAccount(data);
+
+      if (!response.ok) {
+        if (response.status !== 404) {
+          throw new Error("Failed to fetch connected account");
+        }
+        return;
       }
+
+      const data = await response.json();
+      setConnectedAccount(data);
     } catch (err) {
       console.error("Failed to fetch connected account:", err);
+      setConnectedAccount(null);
     } finally {
       setAccountLoading(false);
     }
@@ -63,10 +90,10 @@ export function PayPalCheckout({
     checkConnectedAccount();
   }, [organization?.id, checkConnectedAccount]);
 
-  const handleCreateOrder = async () => {
+  const handleCreateOrder = async (): Promise<string> => {
     if (!organization?.id) {
       setError("No organization selected");
-      return null;
+      return Promise.reject("No organization selected");
     }
 
     setLoading(true);
@@ -78,6 +105,7 @@ export function PayPalCheckout({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
         },
         body: JSON.stringify({
           orgId: organization.id,
@@ -88,18 +116,12 @@ export function PayPalCheckout({
         }),
       });
 
-      const responseData = await response.json();
-
       if (!response.ok) {
-        // Try to extract detailed error message from the response
-        let errorMsg = "Failed to create order";
-        if (responseData.error) {
-          errorMsg = responseData.error;
-          console.error("Order creation error:", responseData);
-        }
-        throw new Error(errorMsg);
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create order");
       }
 
+      const responseData: PayPalOrderResponse = await response.json();
       setOrderId(responseData.id);
       return responseData.id;
     } catch (err) {
@@ -107,7 +129,7 @@ export function PayPalCheckout({
         err instanceof Error ? err.message : "Failed to create order";
       setError(errorMessage);
       if (onError) onError(err);
-      return null;
+      return Promise.reject(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -128,6 +150,7 @@ export function PayPalCheckout({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
         },
         body: JSON.stringify({
           orgId: organization.id,
@@ -135,18 +158,12 @@ export function PayPalCheckout({
         }),
       });
 
-      const responseData = await response.json();
-
       if (!response.ok) {
-        // Try to extract detailed error message from the response
-        let errorMsg = "Failed to capture payment";
-        if (responseData.error) {
-          errorMsg = responseData.error;
-          console.error("Payment capture error:", responseData);
-        }
-        throw new Error(errorMsg);
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to capture payment");
       }
 
+      const responseData = await response.json();
       setSuccess(true);
       if (onSuccess) onSuccess(responseData);
       return responseData;
@@ -184,18 +201,21 @@ export function PayPalCheckout({
         )}
 
         {success && (
-          <Alert className="bg-green-600/30 border-green-600">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">
+          <Alert className="bg-green-500/10 border-green-500">
+            <AlertTitle className="text-green-500">
               Payment Successful
             </AlertTitle>
-            <AlertDescription className="text-green-700">
+            <AlertDescription className="text-green-500">
               Your payment has been processed successfully!
             </AlertDescription>
           </Alert>
         )}
 
-        {accountLoading && <p>Loading account information...</p>}
+        {accountLoading && (
+          <div className="flex justify-center py-4">
+            <Spinner />
+          </div>
+        )}
 
         {!isAccountConnected && !accountLoading && (
           <Alert>
